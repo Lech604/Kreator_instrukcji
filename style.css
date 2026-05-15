@@ -1,72 +1,32 @@
-body {
-  font-family: Arial, sans-serif;
-  margin: 40px;
-  background: #f2f2f2;
-}
-
-h1 {
-  color: #222;
-}
-
-.form {
-  background: white;
+/* Układ 2 kolumn */
+#app {
+  display: flex;
+  gap: 20px;
   padding: 20px;
-  border-radius: 8px;
-  max-width: 500px;
 }
 
-label {
-  display: block;
-  margin-top: 15px;
-  font-weight: bold;
+/* Lewa kolumna – edytor */
+#editor {
+  width: 40%;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
 }
 
-input, textarea {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  border-radius: 5px;
-  border: 1px solid #ccc;
-}
-
-button {
-  margin-top: 20px;
-  padding: 12px 20px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #0056b3;
+/* Prawa kolumna – podgląd */
+#preview {
+  width: 60%;
+  background: #f8f8f8;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
 }
 
 #output {
-  margin-top: 30px;
+  margin-top: 20px;
   padding: 20px;
   background: white;
-  border-radius: 8px;
-}
-/* Szablon TECHNICZNY */
-.tech {
-  background: #f7f7f7;
-  border: 2px solid #ccc;
-  padding: 20px;
-  border-radius: 8px;
-  font-family: "Segoe UI", Arial, sans-serif;
-}
-
-.tech h3 {
-  color: #333;
-  border-bottom: 1px solid #aaa;
-  padding-bottom: 5px;
-  margin-bottom: 15px;
-}
-
-.tech ol li {
-  margin: 8px 0;
-  padding: 5px 0;
-  border-bottom: 1px dashed #bbb;
+  border-radius: 10px;
+  border: 1px solid #ccc;
 }
