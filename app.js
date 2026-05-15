@@ -5,6 +5,13 @@ const stepsContainer = document.getElementById("stepsContainer");
 const output = document.getElementById("output");
 
 // =========================
+// ENTER → <br>
+// =========================
+function nl2br(str) {
+    return str.replace(/\n/g, "<br>");
+}
+
+// =========================
 // OBSŁUGA PRZYCISKÓW
 // =========================
 document.getElementById("addStep").addEventListener("click", () => {
@@ -14,6 +21,7 @@ document.getElementById("addStep").addEventListener("click", () => {
 
 document.getElementById("title").addEventListener("input", updatePreview);
 document.getElementById("description").addEventListener("input", updatePreview);
+document.getElementById("ending").addEventListener("input", updatePreview);
 document.getElementById("templateSelect").addEventListener("change", updatePreview);
 
 // =========================
@@ -30,6 +38,8 @@ function addStep(text) {
             <button class="moveDown">↓</button>
             <button class="deleteStep">🗑</button>
         </div>
+
+        <textarea class="stepLongText" placeholder="Dodatkowy opis (opcjonalnie)..."></textarea>
 
         <div class="stepImages"></div>
         <button class="addStepImage">Dodaj zdjęcie</button>
@@ -58,6 +68,7 @@ function addStep(text) {
     });
 
     stepDiv.querySelector(".stepInput").addEventListener("input", updatePreview);
+    stepDiv.querySelector(".stepLongText").addEventListener("input", updatePreview);
 
     // Dodawanie zdjęcia do konkretnego kroku
     stepDiv.querySelector(".addStepImage").addEventListener("click", () => {
@@ -111,18 +122,25 @@ function addImageToStep(stepDiv) {
 function updatePreview() {
     const title = document.getElementById("title").value;
     const description = document.getElementById("description").value;
+    const ending = document.getElementById("ending").value;
     const template = document.getElementById("templateSelect").value;
 
     let html = "";
 
     if (title.trim()) html += `<h2>${title}</h2>`;
-    if (description.trim()) html += `<p>${description}</p>`;
+    if (description.trim()) html += `<p>${nl2br(description)}</p>`;
 
     html += `<ol>`;
 
     document.querySelectorAll(".stepItem").forEach(step => {
         const text = step.querySelector(".stepInput").value.trim();
+        const longText = step.querySelector(".stepLongText").value.trim();
+
         html += `<li>${text}`;
+
+        if (longText) {
+            html += `<div class="stepLongTextPreview">${nl2br(longText)}</div>`;
+        }
 
         // Zdjęcia w kroku
         const images = step.querySelectorAll(".imageBlock img");
@@ -144,9 +162,29 @@ function updatePreview() {
 
     html += `</ol>`;
 
+    if (ending.trim()) {
+        html += `<hr><h3>Zakończenie instrukcji</h3><p>${nl2br(ending)}</p>`;
+    }
+
     output.className = template;
     output.innerHTML = html;
 }
+
+// =========================
+// EKSPORT DO PDF
+// =========================
+document.getElementById("exportPDF").addEventListener("click", () => {
+    const element = document.getElementById("output");
+
+    const opt = {
+        margin: 10,
+        filename: 'instrukcja.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+});
 
 // =========================
 // START
