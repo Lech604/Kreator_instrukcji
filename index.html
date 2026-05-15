@@ -1,46 +1,36 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <title>Kreator instrukcji</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+<div id="app">
 
-  <h1>Kreator instrukcji_v2</h1>
+  <!-- LEWA KOLUMNA – PANEL EDYCJI -->
+  <div id="editor">
+    <h2>Edytor instrukcji</h2>
 
-  <div class="form">
     <label>Tytuł instrukcji:</label>
-    <input type="text" id="title" placeholder="Np. Jak wymienić żarówkę">
-    <label>Ikona instrukcji:</label>
-<select id="iconSelect">
-  <option value="">Brak</option>
-  <option value="💡">DALI / Oświetlenie</option>
-  <option value="⚡">Elektryka</option>
-  <option value="🟦 LMS">LMS</option>
-  <option value="🔷 DALI">DALI</option>
-</select>
-    <label>Szablon instrukcji:</label>
-<select id="templateSelect">
-  <option value="default">Domyślny</option>
-  <option value="tech">Techniczny</option>
-  <option value="dali">DALI</option>
-  <option value="ikea">IKEA‑style</option>
-</select>
+    <input type="text" id="title" placeholder="Np. Adresowanie urządzeń DALI">
 
+    <label>Opis instrukcji:</label>
+    <textarea id="description" placeholder="Krótki opis instrukcji..."></textarea>
 
+    <h3>Kroki</h3>
+    <div id="stepsContainer"></div>
+    <button id="addStep">➕ Dodaj krok</button>
 
-    <label>Kroki instrukcji:</label>
-    <textarea id="steps" placeholder="Wpisz każdy krok w nowej linii"></textarea>
+    <h3>Sekcje</h3>
+    <div id="sectionsContainer"></div>
+    <button id="addSection">➕ Dodaj sekcję</button>
 
-    <button id="generate">Generuj instrukcję</button>
+    <h3>Szablon</h3>
+    <select id="templateSelect">
+      <option value="default">Domyślny</option>
+      <option value="tech">Techniczny</option>
+      <option value="dali">DALI</option>
+      <option value="ikea">IKEA‑style</option>
+    </select>
   </div>
 
-  <h2>Wynik instrukcji <span id="icon"></span>:</h2>
+  <!-- PRAWA KOLUMNA – PODGLĄD -->
+  <div id="preview">
+    <h2>Podgląd instrukcji</h2>
+    <div id="output"></div>
+  </div>
 
-  <div id="output"></div>
-
-  <script src="app.js"></script>
-</body>
-</html>
+</div>
