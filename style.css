@@ -79,6 +79,16 @@
   border: 1px solid #bbb;
 }
 
+.stepLongText {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 14px;
+  resize: vertical;
+}
+
 .stepHeader button {
   background: #ddd;
   color: #333;
@@ -114,14 +124,63 @@
   border-radius: 6px;
 }
 
-.stepImages input {
-  width: 100%;
-  margin-top: 5px;
-}
-
 .stepImages .imageBlock {
   background: #ececec;
   padding: 10px;
   border-radius: 8px;
   margin-top: 10px;
+}
+
+.stepImages input {
+  width: 100%;
+  margin-top: 5px;
+}
+
+/* PODGLĄD */
+#output ol li {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+#output .stepLongTextPreview {
+  margin: 8px 0 12px 0;
+  font-size: 15px;
+  color: #444;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+#output .imagePreview img {
+  margin-top: 10px;
+  border-radius: 6px;
+}
+
+#output .imagePreview p {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+#output h3 {
+  margin-top: 30px;
+  font-size: 20px;
+  color: #2a4d8f;
+}
+
+/* PDF button */
+#exportPDF {
+  margin-top: 20px;
+  padding: 12px 18px;
+  background: #1f7a1f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+#exportPDF:hover {
+  background: #145214;
 }
