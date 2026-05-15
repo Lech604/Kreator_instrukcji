@@ -4,9 +4,25 @@
   <meta charset="UTF-8">
   <title>Kreator instrukcji</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Kreator instrukcji – wersja testowa</h1>
-  <p>Aplikacja działa. Kolejne pliki dodamy za chwilę.</p>
+
+  <h1>Kreator instrukcji</h1>
+
+  <div class="form">
+    <label>Tytuł instrukcji:</label>
+    <input type="text" id="title" placeholder="Np. Jak wymienić żarówkę">
+
+    <label>Kroki instrukcji:</label>
+    <textarea id="steps" placeholder="Wpisz każdy krok w nowej linii"></textarea>
+
+    <button id="generate">Generuj instrukcję</button>
+  </div>
+
+  <h2>Wynik:</h2>
+  <div id="output"></div>
+
+  <script src="app.js"></script>
 </body>
 </html>
