@@ -1,35 +1,107 @@
 /* Układ 2 kolumn */
 #app {
   display: flex;
-  gap: 20px;
-  padding: 20px;
+  gap: 25px;
+  padding: 25px;
+  max-width: 1400px;
+  margin: auto;
+  font-family: "Segoe UI", Arial, sans-serif;
 }
 
 /* Lewa kolumna – edytor */
 #editor {
   width: 40%;
   background: #ffffff;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+#editor h2 {
+  margin-top: 0;
+  font-size: 22px;
+  color: #2a4d8f;
+}
+
+#editor label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 600;
+}
+
+#editor input,
+#editor textarea,
+#editor select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+#editor button {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #2a4d8f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#editor button:hover {
+  background: #1f3a6b;
+}
+
+/* Kroki */
+.stepItem {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stepInput {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+}
+
+.stepItem button {
+  background: #ddd;
+  color: #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border: none;
+}
+
+.stepItem button:hover {
+  background: #ccc;
 }
 
 /* Prawa kolumna – podgląd */
 #preview {
   width: 60%;
-  background: #f8f8f8;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
 #output {
   margin-top: 20px;
   padding: 20px;
-  background: white;
+  background: #fafafa;
   border-radius: 10px;
   border: 1px solid #ccc;
 }
+
 /* BLOKI ZDJĘĆ W EDYTORZE */
 .imageBlock {
   background: #f4f4f4;
@@ -65,4 +137,3 @@
   color: #555;
   margin-top: -5px;
 }
-
