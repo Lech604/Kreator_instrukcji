@@ -2,8 +2,11 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <title>Kreator instrukcji</title>
+  <title>Kreator instrukcji – Uniwersalny</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -24,6 +27,9 @@
     <div id="stepsContainer"></div>
     <button id="addStep">➕ Dodaj krok</button>
 
+    <h3>Zakończenie instrukcji</h3>
+    <textarea id="ending" placeholder="Np. Instrukcja zakończona. W razie pytań skontaktuj się z działem technicznym."></textarea>
+
     <h3>Szablon</h3>
     <select id="templateSelect">
       <option value="default">Domyślny</option>
@@ -31,6 +37,8 @@
       <option value="dali">DALI</option>
       <option value="ikea">IKEA‑style</option>
     </select>
+
+    <button id="exportPDF">Eksportuj do PDF</button>
   </div>
 
   <!-- PRAWA KOLUMNA – PODGLĄD -->
