@@ -18,6 +18,10 @@ document.getElementById("addImage").addEventListener("click", () => {
     updatePreview();
 });
 
+document.getElementById("title").addEventListener("input", updatePreview);
+document.getElementById("description").addEventListener("input", updatePreview);
+document.getElementById("templateSelect").addEventListener("change", updatePreview);
+
 // =========================
 // FUNKCJA: DODAWANIE KROKU
 // =========================
@@ -34,13 +38,11 @@ function addStep(text) {
 
     stepsContainer.appendChild(stepDiv);
 
-    // Usuwanie kroku
     stepDiv.querySelector(".deleteStep").addEventListener("click", () => {
         stepDiv.remove();
         updatePreview();
     });
 
-    // Przesuwanie w górę
     stepDiv.querySelector(".moveUp").addEventListener("click", () => {
         if (stepDiv.previousElementSibling) {
             stepsContainer.insertBefore(stepDiv, stepDiv.previousElementSibling);
@@ -48,7 +50,6 @@ function addStep(text) {
         }
     });
 
-    // Przesuwanie w dół
     stepDiv.querySelector(".moveDown").addEventListener("click", () => {
         if (stepDiv.nextElementSibling) {
             stepsContainer.insertBefore(stepDiv.nextElementSibling, stepDiv);
@@ -56,7 +57,6 @@ function addStep(text) {
         }
     });
 
-    // Aktualizacja podglądu przy pisaniu
     stepDiv.querySelector(".stepInput").addEventListener("input", updatePreview);
 }
 
@@ -81,7 +81,6 @@ function addImageBlock() {
     const fileInput = div.querySelector(".imageInput");
     const img = div.querySelector("img");
 
-    // Wczytywanie zdjęcia
     fileInput.addEventListener("change", () => {
         const file = fileInput.files[0];
         const reader = new FileReader();
@@ -93,16 +92,13 @@ function addImageBlock() {
         reader.readAsDataURL(file);
     });
 
-    // Podpis zdjęcia
     div.querySelector(".imageCaption").addEventListener("input", updatePreview);
 
-    // Usuwanie zdjęcia
     div.querySelector(".deleteImage").addEventListener("click", () => {
         div.remove();
         updatePreview();
     });
 
-    // Przesuwanie w górę
     div.querySelector(".moveUp").addEventListener("click", () => {
         if (div.previousElementSibling) {
             imagesContainer.insertBefore(div, div.previousElementSibling);
@@ -110,7 +106,6 @@ function addImageBlock() {
         }
     });
 
-    // Przesuwanie w dół
     div.querySelector(".moveDown").addEventListener("click", () => {
         if (div.nextElementSibling) {
             imagesContainer.insertBefore(div.nextElementSibling, div);
@@ -127,18 +122,14 @@ function updatePreview() {
     const description = document.getElementById("description").value;
     const template = document.getElementById("templateSelect").value;
 
-    let html = `<h2>${title}</h2>`;
+    let html = "";
 
-    if (description.trim() !== "") {
-        html += `<p>${description}</p>`;
-    }
+    if (title.trim() !== "") html += `<h2>${title}</h2>`;
+    if (description.trim() !== "") html += `<p>${description}</p>`;
 
-    // Kroki
     html += `<ol>`;
     document.querySelectorAll(".stepInput").forEach(input => {
-        if (input.value.trim() !== "") {
-            html += `<li>${input.value}</li>`;
-        }
+        if (input.value.trim() !== "") html += `<li>${input.value}</li>`;
     });
     html += `</ol>`;
 
@@ -162,7 +153,7 @@ function updatePreview() {
 }
 
 // =========================
-// START: dodaj pierwszy krok
+// START
 // =========================
 addStep("");
 updatePreview();
