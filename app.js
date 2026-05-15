@@ -17,5 +17,7 @@ document.getElementById("generate").addEventListener("click", () => {
   html += "</ol>";
 
   document.getElementById("output").innerHTML = html;
+  document.getElementById("output").className = document.getElementById("templateSelect").value;
+
 });
 
