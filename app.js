@@ -1,8 +1,7 @@
 // =========================
-// REFERENCJE DO ELEMENTÓW
+// REFERENCJE
 // =========================
 const stepsContainer = document.getElementById("stepsContainer");
-const imagesContainer = document.getElementById("imagesContainer");
 const output = document.getElementById("output");
 
 // =========================
@@ -10,11 +9,6 @@ const output = document.getElementById("output");
 // =========================
 document.getElementById("addStep").addEventListener("click", () => {
     addStep("");
-    updatePreview();
-});
-
-document.getElementById("addImage").addEventListener("click", () => {
-    addImageBlock();
     updatePreview();
 });
 
@@ -30,14 +24,20 @@ function addStep(text) {
     stepDiv.className = "stepItem";
 
     stepDiv.innerHTML = `
-        <input type="text" class="stepInput" value="${text}" placeholder="Wpisz krok...">
-        <button class="moveUp">↑</button>
-        <button class="moveDown">↓</button>
-        <button class="deleteStep">🗑</button>
+        <div class="stepHeader">
+            <input type="text" class="stepInput" value="${text}" placeholder="Wpisz krok...">
+            <button class="moveUp">↑</button>
+            <button class="moveDown">↓</button>
+            <button class="deleteStep">🗑</button>
+        </div>
+
+        <div class="stepImages"></div>
+        <button class="addStepImage">Dodaj zdjęcie</button>
     `;
 
     stepsContainer.appendChild(stepDiv);
 
+    // Obsługa przycisków kroków
     stepDiv.querySelector(".deleteStep").addEventListener("click", () => {
         stepDiv.remove();
         updatePreview();
@@ -58,28 +58,33 @@ function addStep(text) {
     });
 
     stepDiv.querySelector(".stepInput").addEventListener("input", updatePreview);
+
+    // Dodawanie zdjęcia do konkretnego kroku
+    stepDiv.querySelector(".addStepImage").addEventListener("click", () => {
+        addImageToStep(stepDiv);
+    });
 }
 
 // =========================
-// FUNKCJA: DODAWANIE ZDJĘCIA
+// FUNKCJA: DODAWANIE ZDJĘCIA DO KROKU
 // =========================
-function addImageBlock() {
-    const div = document.createElement("div");
-    div.className = "imageBlock";
+function addImageToStep(stepDiv) {
+    const container = stepDiv.querySelector(".stepImages");
 
-    div.innerHTML = `
+    const block = document.createElement("div");
+    block.className = "imageBlock";
+
+    block.innerHTML = `
         <input type="file" accept="image/*" class="imageInput">
         <img style="display:none;">
         <input type="text" class="imageCaption" placeholder="Podpis zdjęcia...">
-        <button class="moveUp">↑</button>
-        <button class="moveDown">↓</button>
-        <button class="deleteImage">🗑</button>
+        <button class="deleteImage">Usuń zdjęcie</button>
     `;
 
-    imagesContainer.appendChild(div);
+    container.appendChild(block);
 
-    const fileInput = div.querySelector(".imageInput");
-    const img = div.querySelector("img");
+    const fileInput = block.querySelector(".imageInput");
+    const img = block.querySelector("img");
 
     fileInput.addEventListener("change", () => {
         const file = fileInput.files[0];
@@ -92,30 +97,16 @@ function addImageBlock() {
         reader.readAsDataURL(file);
     });
 
-    div.querySelector(".imageCaption").addEventListener("input", updatePreview);
+    block.querySelector(".imageCaption").addEventListener("input", updatePreview);
 
-    div.querySelector(".deleteImage").addEventListener("click", () => {
-        div.remove();
+    block.querySelector(".deleteImage").addEventListener("click", () => {
+        block.remove();
         updatePreview();
-    });
-
-    div.querySelector(".moveUp").addEventListener("click", () => {
-        if (div.previousElementSibling) {
-            imagesContainer.insertBefore(div, div.previousElementSibling);
-            updatePreview();
-        }
-    });
-
-    div.querySelector(".moveDown").addEventListener("click", () => {
-        if (div.nextElementSibling) {
-            imagesContainer.insertBefore(div.nextElementSibling, div);
-            updatePreview();
-        }
     });
 }
 
 // =========================
-// FUNKCJA: GENEROWANIE PODGLĄDU
+// FUNKCJA: PODGLĄD
 // =========================
 function updatePreview() {
     const title = document.getElementById("title").value;
@@ -124,29 +115,34 @@ function updatePreview() {
 
     let html = "";
 
-    if (title.trim() !== "") html += `<h2>${title}</h2>`;
-    if (description.trim() !== "") html += `<p>${description}</p>`;
+    if (title.trim()) html += `<h2>${title}</h2>`;
+    if (description.trim()) html += `<p>${description}</p>`;
 
     html += `<ol>`;
-    document.querySelectorAll(".stepInput").forEach(input => {
-        if (input.value.trim() !== "") html += `<li>${input.value}</li>`;
+
+    document.querySelectorAll(".stepItem").forEach(step => {
+        const text = step.querySelector(".stepInput").value.trim();
+        html += `<li>${text}`;
+
+        // Zdjęcia w kroku
+        const images = step.querySelectorAll(".imageBlock img");
+        const captions = step.querySelectorAll(".imageCaption");
+
+        images.forEach((img, i) => {
+            if (img.src) {
+                html += `
+                    <div class="imagePreview">
+                        <img src="${img.src}">
+                        ${captions[i].value ? `<p><em>${captions[i].value}</em></p>` : ""}
+                    </div>
+                `;
+            }
+        });
+
+        html += `</li>`;
     });
+
     html += `</ol>`;
-
-    // Zdjęcia
-    document.querySelectorAll(".imageBlock").forEach(block => {
-        const img = block.querySelector("img").src;
-        const caption = block.querySelector(".imageCaption").value;
-
-        if (img) {
-            html += `
-                <div class="imagePreview">
-                    <img src="${img}">
-                    ${caption ? `<p><em>${caption}</em></p>` : ""}
-                </div>
-            `;
-        }
-    });
 
     output.className = template;
     output.innerHTML = html;
