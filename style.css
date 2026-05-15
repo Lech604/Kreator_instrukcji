@@ -30,3 +30,39 @@
   border-radius: 10px;
   border: 1px solid #ccc;
 }
+/* BLOKI ZDJĘĆ W EDYTORZE */
+.imageBlock {
+  background: #f4f4f4;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+}
+
+.imageBlock img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.imageBlock input {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.imageBlock button {
+  margin-right: 5px;
+}
+
+/* PODGLĄD ZDJĘĆ W DOKUMENCIE */
+.imagePreview img {
+  max-width: 100%;
+  margin: 10px 0;
+}
+
+.imagePreview p {
+  font-size: 14px;
+  color: #555;
+  margin-top: -5px;
+}
+
