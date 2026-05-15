@@ -3,75 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <title>Nowy kreator instrukcji</title>
-  <style>
-    /* GLOBAL STYLE */
-    body {
-      margin: 0;
-      padding: 0;
-      background: #eef1f5;
-      font-family: "Segoe UI", Arial, sans-serif;
-      color: #333;
-    }
 
-    /* APP LAYOUT */
+  <style>
+    /* Układ 2 kolumn */
     #app {
       display: flex;
-      gap: 25px;
-      padding: 25px;
-      max-width: 1400px;
-      margin: auto;
+      gap: 20px;
+      padding: 20px;
     }
 
-    /* LEFT PANEL – EDITOR */
+    /* Lewa kolumna – edytor */
     #editor {
       width: 40%;
       background: #ffffff;
-      padding: 25px;
-      border-radius: 12px;
-      border: 1px solid #dcdcdc;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
     }
 
-    #editor h2 {
-      margin-top: 0;
-      font-size: 22px;
-      color: #2a4d8f;
+    /* Prawa kolumna – podgląd */
+    #preview {
+      width: 60%;
+      background: #f8f8f8;
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
     }
 
-    #editor label {
-      display: block;
-      margin-top: 15px;
-      font-weight: 600;
-    }
-
-    #editor input,
-    #editor textarea,
-    #editor select {
-      width: 100%;
-      padding: 10px;
-      margin-top: 6px;
-      border-radius: 8px;
+    #output {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
       border: 1px solid #ccc;
-      font-size: 15px;
-      box-sizing: border-box;
     }
 
-    #editor button {
-      margin-top: 10px;
-      padding: 10px 14px;
-      background: #2a4d8f;
-      color: white;
-      border: none;
+    /* BLOKI ZDJĘĆ W EDYTORZE */
+    .imageBlock {
+      background: #f4f4f4;
+      padding: 10px;
       border-radius: 8px;
-      cursor: pointer;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+    }
+
+    .imageBlock img {
+      max-width: 100%;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .imageBlock input {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .imageBlock button {
+      margin-right: 5px;
+    }
+
+    /* PODGLĄD ZDJĘĆ W DOKUMENCIE */
+    .imagePreview img {
+      max-width: 100%;
+      margin: 10px 0;
+    }
+
+    .imagePreview p {
       font-size: 14px;
+      color: #555;
+      margin-top: -5px;
     }
 
-    #editor button:hover {
-      background: #1f3a6b;
-    }
-
-    /* STEP ITEMS */
+    /* Kroki */
     .stepItem {
       display: flex;
       gap: 10px;
@@ -93,59 +96,9 @@
       cursor: pointer;
       border: none;
     }
-
-    .stepItem button:hover {
-      background: #ccc;
-    }
-
-    /* RIGHT PANEL – PREVIEW */
-    #preview {
-      width: 60%;
-      background: #ffffff;
-      padding: 25px;
-      border-radius: 12px;
-      border: 1px solid #dcdcdc;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
-
-    #preview h2 {
-      margin-top: 0;
-      font-size: 22px;
-      color: #2a4d8f;
-    }
-
-    #output {
-      margin-top: 20px;
-      padding: 20px;
-      background: #fafafa;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-    }
-
-    /* PROSTE SZABLONY WYGLĄDU */
-    .default h2 { color: #333; }
-    .tech {
-      border-left: 4px solid #555;
-    }
-    .tech h2 {
-      color: #222;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .dali {
-      border-left: 4px solid #0077cc;
-    }
-    .dali h2 {
-      color: #005a99;
-    }
-    .ikea {
-      border-left: 4px solid #f2c200;
-    }
-    .ikea h2 {
-      color: #c79b00;
-    }
   </style>
 </head>
+
 <body>
 
 <div id="app">
@@ -163,10 +116,10 @@
     <h3>Kroki</h3>
     <div id="stepsContainer"></div>
     <button id="addStep">➕ Dodaj krok</button>
+
     <h3>Zdjęcia</h3>
     <div id="imagesContainer"></div>
     <button id="addImage">➕ Dodaj zdjęcie</button>
-
 
     <h3>Szablon</h3>
     <select id="templateSelect">
@@ -186,88 +139,84 @@
 </div>
 
 <script>
-  // Kontenery
-  const stepsContainer = document.getElementById("stepsContainer");
-  const output = document.getElementById("output");
+// =========================
+// REFERENCJE DO ELEMENTÓW
+// =========================
+const stepsContainer = document.getElementById("stepsContainer");
+const imagesContainer = document.getElementById("imagesContainer");
+const output = document.getElementById("output");
 
-  // Przycisk dodawania kroku
-  document.getElementById("addStep").addEventListener("click", () => {
+// =========================
+// OBSŁUGA PRZYCISKÓW
+// =========================
+document.getElementById("addStep").addEventListener("click", () => {
     addStep("");
     updatePreview();
-  });
+});
 
-  // Aktualizacja podglądu przy zmianie tytułu/opisu/szablonu
-  document.getElementById("title").addEventListener("input", updatePreview);
-  document.getElementById("description").addEventListener("input", updatePreview);
-  document.getElementById("templateSelect").addEventListener("change", updatePreview);
+document.getElementById("addImage").addEventListener("click", () => {
+    addImageBlock();
+    updatePreview();
+});
 
-  // Funkcja dodająca krok
-  function addStep(text) {
+document.getElementById("title").addEventListener("input", updatePreview);
+document.getElementById("description").addEventListener("input", updatePreview);
+document.getElementById("templateSelect").addEventListener("change", updatePreview);
+
+// =========================
+// FUNKCJA: DODAWANIE KROKU
+// =========================
+function addStep(text) {
     const stepDiv = document.createElement("div");
     stepDiv.className = "stepItem";
 
     stepDiv.innerHTML = `
-      <input type="text" class="stepInput" value="${text}" placeholder="Wpisz krok...">
-      <button class="moveUp">↑</button>
-      <button class="moveDown">↓</button>
-      <button class="deleteStep">🗑</button>
+        <input type="text" class="stepInput" value="${text}" placeholder="Wpisz krok...">
+        <button class="moveUp">↑</button>
+        <button class="moveDown">↓</button>
+        <button class="deleteStep">🗑</button>
     `;
 
     stepsContainer.appendChild(stepDiv);
 
-    // Obsługa przycisków
     stepDiv.querySelector(".deleteStep").addEventListener("click", () => {
-      stepDiv.remove();
-      updatePreview();
+        stepDiv.remove();
+        updatePreview();
     });
 
     stepDiv.querySelector(".moveUp").addEventListener("click", () => {
-      if (stepDiv.previousElementSibling) {
-        stepsContainer.insertBefore(stepDiv, stepDiv.previousElementSibling);
-        updatePreview();
-      }
+        if (stepDiv.previousElementSibling) {
+            stepsContainer.insertBefore(stepDiv, stepDiv.previousElementSibling);
+            updatePreview();
+        }
     });
 
     stepDiv.querySelector(".moveDown").addEventListener("click", () => {
-      if (stepDiv.nextElementSibling) {
-        stepsContainer.insertBefore(stepDiv.nextElementSibling, stepDiv);
-        updatePreview();
-      }
+        if (stepDiv.nextElementSibling) {
+            stepsContainer.insertBefore(stepDiv.nextElementSibling, stepDiv);
+            updatePreview();
+        }
     });
 
     stepDiv.querySelector(".stepInput").addEventListener("input", updatePreview);
-  }
+}
 
-  // Funkcja generująca podgląd
-  function updatePreview() {
-    const title = document.getElementById("title").value;
-    const description = document.getElementById("description").value;
-    const template = document.getElementById("templateSelect").value;
+// =========================
+// FUNKCJA: DODAWANIE ZDJĘCIA
+// =========================
+function addImageBlock() {
+    const div = document.createElement("div");
+    div.className = "imageBlock";
 
-    let html = "";
-    if (title.trim() !== "") {
-      html += `<h2>${title}</h2>`;
-    }
-    if (description.trim() !== "") {
-      html += `<p>${description}</p>`;
-    }
+    div.innerHTML = `
+        <input type="file" accept="image/*" class="imageInput">
+        <img style="display:none;">
+        <input type="text" class="imageCaption" placeholder="Podpis zdjęcia...">
+        <button class="moveUp">↑</button>
+        <button class="moveDown">↓</button>
+        <button class="deleteImage">🗑</button>
+    `;
 
-    html += `<ol>`;
-    document.querySelectorAll(".stepInput").forEach(input => {
-      if (input.value.trim() !== "") {
-        html += `<li>${input.value}</li>`;
-      }
-    });
-    html += `</ol>`;
+    imagesContainer.appendChild(div);
 
-    output.className = template;
-    output.innerHTML = html;
-  }
-
-  // Dodaj pierwszy pusty krok na start
-  addStep("");
-  updatePreview();
-</script>
-
-</body>
-</html>
+    const fileInput = div.query
