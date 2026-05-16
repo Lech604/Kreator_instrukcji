@@ -216,7 +216,9 @@ function updatePreview() {
    EKSPORT DO PDF
 ========================================== */
 document.getElementById("exportPDF").addEventListener("click", () => {
-    const element = document.getElementById("output");
+    const element = document.getElementById("output").cloneNode(true);
+    element.style.display = "block";
+    element.style.width = "100%";
 
     const opt = {
         margin:       10,
