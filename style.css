@@ -56,7 +56,6 @@
 #editor button:hover {
   background: #1f3a6b;
 }
-
 /* Kroki */
 .stepItem {
   background: #f7f7f7;
@@ -149,7 +148,6 @@
 .imageControls button:hover {
   background: #1f3a6b;
 }
-
 /* PODGLĄD */
 #preview {
   width: 60%;
