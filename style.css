@@ -205,3 +205,12 @@
 #exportPDF:hover {
   background: #145214;
 }
+#output {
+  display: block !important;
+  position: relative !important;
+}
+
+#preview {
+  overflow: visible !important;
+}
+
