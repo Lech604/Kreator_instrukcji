@@ -216,9 +216,7 @@ function updatePreview() {
    EKSPORT DO PDF
 ========================================== */
 document.getElementById("exportPDF").addEventListener("click", () => {
-    const element = document.getElementById("output").cloneNode(true);
-    element.style.display = "block";
-    element.style.width = "100%";
+    const element = document.getElementById("output");
 
     const opt = {
         margin:       10,
@@ -228,10 +226,5 @@ document.getElementById("exportPDF").addEventListener("click", () => {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
- 
-setTimeout(() => {
     html2pdf().set(opt).from(element).save();
-}, 500);
-});
-
 });
