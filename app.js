@@ -226,5 +226,8 @@ document.getElementById("exportPDF").addEventListener("click", () => {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
+   setTimeout(() => {
     html2pdf().set(opt).from(element).save();
+}, 500);
+
 });
