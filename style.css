@@ -1,53 +1,207 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="UTF-8">
-  <title>Kreator instrukcji – Uniwersalny</title>
-  <link rel="stylesheet" href="style.css">
+/* Układ 2 kolumn */
+#app {
+  display: flex;
+  gap: 25px;
+  padding: 25px;
+  max-width: 1400px;
+  margin: auto;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
 
-  <!-- PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
+/* Lewa kolumna – edytor */
+#editor {
+  width: 40%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
 
-<body>
+#editor h2 {
+  margin-top: 0;
+  font-size: 22px;
+  color: #2a4d8f;
+}
 
-<div id="app">
+#editor label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 600;
+}
 
-  <!-- LEWA KOLUMNA – EDYTOR -->
-  <div id="editor">
-    <h2>Edytor instrukcji</h2>
+#editor input,
+#editor textarea,
+#editor select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
 
-    <label for="title">Tytuł instrukcji:</label>
-    <input type="text" id="title" placeholder="Np. Adresowanie urządzeń DALI">
+#editor button {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #2a4d8f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
 
-    <label for="description">Opis instrukcji:</label>
-    <textarea id="description" placeholder="Krótki opis instrukcji..."></textarea>
+#editor button:hover {
+  background: #1f3a6b;
+}
+/* Kroki */
+.stepItem {
+  background: #f7f7f7;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  margin-top: 15px;
+}
 
-    <h3>Kroki</h3>
-    <div id="stepsContainer"></div>
-    <button id="addStep">➕ Dodaj krok</button>
+.stepHeader {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
 
-    <h3>Zakończenie instrukcji</h3>
-    <textarea id="ending" placeholder="Np. Instrukcja zakończona. W razie pytań skontaktuj się z działem technicznym."></textarea>
+.stepInput {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+}
 
-    <h3>Szablon</h3>
-    <select id="templateSelect">
-      <option value="default">Domyślny</option>
-      <option value="tech">Techniczny</option>
-      <option value="dali">DALI</option>
-      <option value="ikea">IKEA‑style</option>
-    </select>
+.stepLongText {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 14px;
+  resize: vertical;
+}
 
-    <button id="exportPDF">Eksportuj do PDF</button>
-  </div>
-  <!-- PRAWA KOLUMNA – PODGLĄD -->
-  <div id="preview">
-    <h2>Podgląd instrukcji</h2>
-    <div id="output"></div>
-  </div>
+.stepHeader button {
+  background: #ddd;
+  color: #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border: none;
+}
 
-</div>
+.stepHeader button:hover {
+  background: #ccc;
+}
 
-<script src="app.js"></script>
-</body>
-</html>
+/* Zdjęcia */
+.stepImages img {
+  max-width: 100%;
+  margin-top: 10px;
+  border-radius: 6px;
+}
+
+.stepImages .imageBlock {
+  background: #ececec;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.stepImages input {
+  width: 100%;
+  margin-top: 5px;
+}
+
+/* Minimalistyczne ➖ ➕ */
+.imageControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.imageSizeValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.imageControls button {
+  background: #2a4d8f;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.imageControls button:hover {
+  background: #1f3a6b;
+}
+/* PODGLĄD */
+#preview {
+  width: 60%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+#output ol li {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+#output .stepLongTextPreview {
+  margin: 8px 0 12px 0;
+  font-size: 15px;
+  color: #444;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+#output .imagePreview img {
+  margin-top: 10px;
+  border-radius: 6px;
+}
+
+#output .imagePreview p {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+#output h3 {
+  margin-top: 30px;
+  font-size: 20px;
+  color: #2a4d8f;
+}
+
+/* PDF button */
+#exportPDF {
+  margin-top: 20px;
+  padding: 12px 18px;
+  background: #1f7a1f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+#exportPDF:hover {
+  background: #145214;
+}
