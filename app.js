@@ -219,11 +219,19 @@ document.getElementById("exportPDF").addEventListener("click", () => {
     const element = document.getElementById("output");
 
     const opt = {
-        margin:       10,
+        margin:       [15, 15, 15, 15],
         filename:     'instrukcja.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas:  {
+            scale: 2,
+            useCORS: false,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            scrollX: 0,
+            scrollY: 0
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     html2pdf().set(opt).from(element).save();
