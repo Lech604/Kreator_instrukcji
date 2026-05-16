@@ -1,209 +1,227 @@
-/* Układ 2 kolumn */
-#app {
-  display: flex;
-  gap: 25px;
-  padding: 25px;
-  max-width: 1400px;
-  margin: auto;
-  font-family: "Segoe UI", Arial, sans-serif;
+// ==========================================
+// KONWERSJA ENTER → <br>
+// ==========================================
+function nl2br(str) {
+    return str.replace(/\n/g, "<br>");
 }
 
-/* Lewa kolumna – edytor */
-#editor {
-  width: 40%;
-  background: #ffffff;
-  padding: 25px;
-  border-radius: 12px;
-  border: 1px solid #dcdcdc;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+// ==========================================
+// REFERENCJE
+// ==========================================
+const stepsContainer = document.getElementById("stepsContainer");
+const output = document.getElementById("output");
+
+// ==========================================
+// OBSŁUGA ZMIAN W POLACH GŁÓWNYCH
+// ==========================================
+document.getElementById("title").addEventListener("input", updatePreview);
+document.getElementById("description").addEventListener("input", updatePreview);
+document.getElementById("ending").addEventListener("input", updatePreview);
+document.getElementById("templateSelect").addEventListener("change", updatePreview);
+
+// ==========================================
+// DODAWANIE KROKU
+// ==========================================
+document.getElementById("addStep").addEventListener("click", () => {
+    addStep("");
+    updatePreview();
+});
+
+function addStep(text) {
+    const stepDiv = document.createElement("div");
+    stepDiv.className = "stepItem";
+
+    stepDiv.innerHTML = `
+        <div class="stepHeader">
+            <input type="text" class="stepInput" value="${text}" placeholder="Wpisz krok...">
+            <button class="moveUp">↑</button>
+            <button class="moveDown">↓</button>
+            <button class="deleteStep">🗑</button>
+        </div>
+
+        <textarea class="stepLongText" placeholder="Dodatkowy opis (opcjonalnie)..."></textarea>
+
+        <div class="stepImages"></div>
+        <button class="addStepImage">Dodaj zdjęcie</button>
+    `;
+
+    stepsContainer.appendChild(stepDiv);
+
+    // Obsługa przycisków kroków
+    stepDiv.querySelector(".deleteStep").addEventListener("click", () => {
+        stepDiv.remove();
+        updatePreview();
+    });
+
+    stepDiv.querySelector(".moveUp").addEventListener("click", () => {
+        if (stepDiv.previousElementSibling) {
+            stepsContainer.insertBefore(stepDiv, stepDiv.previousElementSibling);
+            updatePreview();
+        }
+    });
+
+    stepDiv.querySelector(".moveDown").addEventListener("click", () => {
+        if (stepDiv.nextElementSibling) {
+            stepsContainer.insertBefore(stepDiv.nextElementSibling, stepDiv);
+            updatePreview();
+        }
+    });
+
+    stepDiv.querySelector(".stepInput").addEventListener("input", updatePreview);
+    stepDiv.querySelector(".stepLongText").addEventListener("input", updatePreview);
+
+    // Dodawanie zdjęcia
+    stepDiv.querySelector(".addStepImage").addEventListener("click", () => {
+        addImageToStep(stepDiv);
+    });
 }
 
-#editor h2 {
-  margin-top: 0;
-  font-size: 22px;
-  color: #2a4d8f;
+// ==========================================
+// DODAWANIE ZDJĘCIA DO KROKU
+// ==========================================
+function addImageToStep(stepDiv) {
+    const container = stepDiv.querySelector(".stepImages");
+
+    const block = document.createElement("div");
+    block.className = "imageBlock";
+
+    block.innerHTML = `
+        <input type="file" accept="image/*" class="imageInput">
+        <img style="display:none;">
+        <input type="text" class="imageCaption" placeholder="Podpis zdjęcia...">
+
+        <div class="imageControls">
+            <span class="imageSizeValue">100%</span>
+            <button class="imgMinus">➖</button>
+            <button class="imgPlus">➕</button>
+        </div>
+
+        <button class="deleteImage">Usuń zdjęcie</button>
+    `;
+
+    container.appendChild(block);
+
+    const fileInput = block.querySelector(".imageInput");
+    const img = block.querySelector("img");
+
+    let size = 100;
+
+    const sizeValue = block.querySelector(".imageSizeValue");
+    const minusBtn = block.querySelector(".imgMinus");
+    const plusBtn = block.querySelector(".imgPlus");
+
+    // Zmniejszanie zdjęcia
+    minusBtn.addEventListener("click", () => {
+        size = Math.max(30, size - 10);
+        img.style.width = size + "%";
+        sizeValue.textContent = size + "%";
+        updatePreview();
+    });
+
+    // Powiększanie zdjęcia
+    plusBtn.addEventListener("click", () => {
+        size = Math.min(200, size + 10);
+        img.style.width = size + "%";
+        sizeValue.textContent = size + "%";
+        updatePreview();
+    });
+
+    // Wczytywanie zdjęcia
+    fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = e => {
+            img.src = e.target.result;
+            img.style.display = "block";
+            img.style.width = size + "%";
+            updatePreview();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    block.querySelector(".imageCaption").addEventListener("input", updatePreview);
+
+    block.querySelector(".deleteImage").addEventListener("click", () => {
+        block.remove();
+        updatePreview();
+    });
 }
 
-#editor label {
-  display: block;
-  margin-top: 15px;
-  font-weight: 600;
+// ==========================================
+// PODGLĄD
+// ==========================================
+function updatePreview() {
+    const title = document.getElementById("title").value;
+    const description = document.getElementById("description").value;
+    const ending = document.getElementById("ending").value;
+    const template = document.getElementById("templateSelect").value;
+
+    let html = "";
+
+    if (title.trim()) html += `<h2>${title}</h2>`;
+    if (description.trim()) html += `<p>${nl2br(description)}</p>`;
+
+    html += `<ol>`;
+
+    document.querySelectorAll(".stepItem").forEach(step => {
+        const text = step.querySelector(".stepInput").value.trim();
+        const longText = step.querySelector(".stepLongText").value.trim();
+
+        html += `<li>${text}`;
+
+        if (longText) {
+            html += `<div class="stepLongTextPreview">${nl2br(longText)}</div>`;
+        }
+
+        // Zdjęcia
+        const images = step.querySelectorAll(".imageBlock img");
+        const captions = step.querySelectorAll(".imageCaption");
+        const sizes = step.querySelectorAll(".imageSizeValue");
+
+        images.forEach((img, i) => {
+            if (img.src) {
+                const size = sizes[i].textContent.replace("%", "");
+
+                html += `
+                    <div class="imagePreview">
+                        <img src="${img.src}" style="width:${size}%;">
+                        ${captions[i].value ? `<p><em>${captions[i].value}</em></p>` : ""}
+                    </div>
+                `;
+            }
+        });
+
+        html += `</li>`;
+    });
+
+    html += `</ol>`;
+
+    if (ending.trim()) {
+        html += `<hr><h3>Zakończenie instrukcji</h3><p>${nl2br(ending)}</p>`;
+    }
+
+    output.className = template;
+    output.innerHTML = html;
 }
 
-#editor input,
-#editor textarea,
-#editor select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 6px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 15px;
-  box-sizing: border-box;
-}
+// ==========================================
+// EKSPORT DO PDF
+// ==========================================
+document.getElementById("exportPDF").addEventListener("click", () => {
+    const element = document.getElementById("output");
 
-#editor button {
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: #2a4d8f;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
+    const opt = {
+        margin: 10,
+        filename: 'instrukcja.pdf',
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
 
-#editor button:hover {
-  background: #1f3a6b;
-}
+    html2pdf().set(opt).from(element).save();
+});
 
-/* Kroki */
-.stepItem {
-  background: #f7f7f7;
-  padding: 15px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  margin-top: 15px;
-}
-
-.stepHeader {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.stepInput {
-  flex: 1;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #bbb;
-}
-
-.stepLongText {
-  width: 100%;
-  margin-top: 8px;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #bbb;
-  font-size: 14px;
-  resize: vertical;
-}
-
-.stepHeader button {
-  background: #ddd;
-  color: #333;
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  border: none;
-}
-
-.stepHeader button:hover {
-  background: #ccc;
-}
-
-/* Zdjęcia */
-.stepImages img {
-  max-width: 100%;
-  margin-top: 10px;
-  border-radius: 6px;
-}
-
-.stepImages .imageBlock {
-  background: #ececec;
-  padding: 10px;
-  border-radius: 8px;
-  margin-top: 10px;
-}
-
-.stepImages input {
-  width: 100%;
-  margin-top: 5px;
-}
-
-/* Minimalistyczne ➖ ➕ */
-.imageControls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.imageSizeValue {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-.imageControls button {
-  background: #2a4d8f;
-  color: white;
-  border: none;
-  padding: 4px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.imageControls button:hover {
-  background: #1f3a6b;
-}
-
-/* PODGLĄD */
-#preview {
-  width: 60%;
-  background: #ffffff;
-  padding: 25px;
-  border-radius: 12px;
-  border: 1px solid #dcdcdc;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-#output ol li {
-  font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 15px;
-}
-
-#output .stepLongTextPreview {
-  margin: 8px 0 12px 0;
-  font-size: 15px;
-  color: #444;
-  font-weight: 400;
-  line-height: 1.4;
-}
-
-#output .imagePreview img {
-  margin-top: 10px;
-  border-radius: 6px;
-}
-
-#output .imagePreview p {
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
-  font-weight: 400;
-}
-
-#output h3 {
-  margin-top: 30px;
-  font-size: 20px;
-  color: #2a4d8f;
-}
-
-/* PDF button */
-#exportPDF {
-  margin-top: 20px;
-  padding: 12px 18px;
-  background: #1f7a1f;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
-}
-
-#exportPDF:hover {
-  background: #145214;
-}
+// ==========================================
+// START
+// ==========================================
+addStep("");
+updatePreview();
