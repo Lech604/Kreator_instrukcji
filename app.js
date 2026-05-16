@@ -1,27 +1,27 @@
-// ==========================================
-// KONWERSJA ENTER → <br>
-// ==========================================
+/* ==========================================
+   KONWERSJA ENTER → <br>
+========================================== */
 function nl2br(str) {
     return str.replace(/\n/g, "<br>");
 }
 
-// ==========================================
-// REFERENCJE
-// ==========================================
+/* ==========================================
+   REFERENCJE
+========================================== */
 const stepsContainer = document.getElementById("stepsContainer");
 const output = document.getElementById("output");
 
-// ==========================================
-// OBSŁUGA ZMIAN W POLACH GŁÓWNYCH
-// ==========================================
+/* ==========================================
+   OBSŁUGA ZMIAN W POLACH GŁÓWNYCH
+========================================== */
 document.getElementById("title").addEventListener("input", updatePreview);
 document.getElementById("description").addEventListener("input", updatePreview);
 document.getElementById("ending").addEventListener("input", updatePreview);
 document.getElementById("templateSelect").addEventListener("change", updatePreview);
 
-// ==========================================
-// DODAWANIE KROKU
-// ==========================================
+/* ==========================================
+   DODAWANIE KROKU
+========================================== */
 document.getElementById("addStep").addEventListener("click", () => {
     addStep("");
     updatePreview();
@@ -44,7 +44,6 @@ function addStep(text) {
         <div class="stepImages"></div>
         <button class="addStepImage">Dodaj zdjęcie</button>
     `;
-
     stepsContainer.appendChild(stepDiv);
 
     // Obsługa przycisków kroków
@@ -75,10 +74,9 @@ function addStep(text) {
         addImageToStep(stepDiv);
     });
 }
-
-// ==========================================
-// DODAWANIE ZDJĘCIA DO KROKU
-// ==========================================
+/* ==========================================
+   DODAWANIE ZDJĘCIA DO KROKU
+========================================== */
 function addImageToStep(stepDiv) {
     const container = stepDiv.querySelector(".stepImages");
 
@@ -109,119 +107,124 @@ function addImageToStep(stepDiv) {
     const sizeValue = block.querySelector(".imageSizeValue");
     const minusBtn = block.querySelector(".imgMinus");
     const plusBtn = block.querySelector(".imgPlus");
-
-    // Zmniejszanie zdjęcia
-    minusBtn.addEventListener("click", () => {
-        size = Math.max(30, size - 10);
-        img.style.width = size + "%";
-        sizeValue.textContent = size + "%";
-        updatePreview();
-    });
-
-    // Powiększanie zdjęcia
-    plusBtn.addEventListener("click", () => {
-        size = Math.min(200, size + 10);
-        img.style.width = size + "%";
-        sizeValue.textContent = size + "%";
-        updatePreview();
-    });
-
     // Wczytywanie zdjęcia
     fileInput.addEventListener("change", () => {
         const file = fileInput.files[0];
+        if (!file) return;
+
         const reader = new FileReader();
         reader.onload = e => {
             img.src = e.target.result;
             img.style.display = "block";
-            img.style.width = size + "%";
             updatePreview();
         };
         reader.readAsDataURL(file);
     });
 
-    block.querySelector(".imageCaption").addEventListener("input", updatePreview);
+    // Powiększanie / pomniejszanie
+    minusBtn.addEventListener("click", () => {
+        if (size > 20) {
+            size -= 10;
+            img.style.width = size + "%";
+            sizeValue.textContent = size + "%";
+            updatePreview();
+        }
+    });
 
+    plusBtn.addEventListener("click", () => {
+        if (size < 200) {
+            size += 10;
+            img.style.width = size + "%";
+            sizeValue.textContent = size + "%";
+            updatePreview();
+        }
+    });
+
+    // Usuwanie zdjęcia
     block.querySelector(".deleteImage").addEventListener("click", () => {
         block.remove();
         updatePreview();
     });
-}
 
-// ==========================================
-// PODGLĄD
-// ==========================================
+    // Podpis zdjęcia
+    block.querySelector(".imageCaption").addEventListener("input", updatePreview);
+}
+/* ==========================================
+   GENEROWANIE PODGLĄDU
+========================================== */
 function updatePreview() {
     const title = document.getElementById("title").value;
-    const description = document.getElementById("description").value;
-    const ending = document.getElementById("ending").value;
+    const description = nl2br(document.getElementById("description").value);
+    const ending = nl2br(document.getElementById("ending").value);
     const template = document.getElementById("templateSelect").value;
 
     let html = "";
 
-    if (title.trim()) html += `<h2>${title}</h2>`;
-    if (description.trim()) html += `<p>${nl2br(description)}</p>`;
-
-    html += `<ol>`;
-
-    document.querySelectorAll(".stepItem").forEach(step => {
-        const text = step.querySelector(".stepInput").value.trim();
-        const longText = step.querySelector(".stepLongText").value.trim();
-
-        html += `<li>${text}`;
-
-        if (longText) {
-            html += `<div class="stepLongTextPreview">${nl2br(longText)}</div>`;
-        }
-
-        // Zdjęcia
-        const images = step.querySelectorAll(".imageBlock img");
-        const captions = step.querySelectorAll(".imageCaption");
-        const sizes = step.querySelectorAll(".imageSizeValue");
-
-        images.forEach((img, i) => {
-            if (img.src) {
-                const size = sizes[i].textContent.replace("%", "");
-
-                html += `
-                    <div class="imagePreview">
-                        <img src="${img.src}" style="width:${size}%;">
-                        ${captions[i].value ? `<p><em>${captions[i].value}</em></p>` : ""}
-                    </div>
-                `;
-            }
-        });
-
-        html += `</li>`;
-    });
-
-    html += `</ol>`;
-
-    if (ending.trim()) {
-        html += `<hr><h3>Zakończenie instrukcji</h3><p>${nl2br(ending)}</p>`;
+    // Tytuł
+    if (title.trim() !== "") {
+        html += `<h1>${title}</h1>`;
     }
 
-    output.className = template;
+    // Opis
+    if (description.trim() !== "") {
+        html += `<p>${description}</p>`;
+    }
+
+    // Kroki
+    const steps = stepsContainer.querySelectorAll(".stepItem");
+    if (steps.length > 0) {
+        html += "<ol>";
+
+        steps.forEach(step => {
+            const stepTitle = step.querySelector(".stepInput").value;
+            const stepLong = nl2br(step.querySelector(".stepLongText").value);
+
+            html += `<li>${stepTitle}</li>`;
+
+            if (stepLong.trim() !== "") {
+                html += `<div class="stepLongTextPreview">${stepLong}</div>`;
+            }
+
+            // Zdjęcia
+            const images = step.querySelectorAll(".imageBlock");
+            images.forEach(imgBlock => {
+                const img = imgBlock.querySelector("img");
+                const caption = imgBlock.querySelector(".imageCaption").value;
+
+                if (img.src && img.style.display !== "none") {
+                    html += `
+                        <div class="imagePreview">
+                            <img src="${img.src}" style="width:${img.style.width || '100%'};">
+                            ${caption ? `<p>${caption}</p>` : ""}
+                        </div>
+                    `;
+                }
+            });
+        });
+
+        html += "</ol>";
+    }
+
+    // Zakończenie
+    if (ending.trim() !== "") {
+        html += `<h3>${ending}</h3>`;
+    }
+
     output.innerHTML = html;
 }
-
-// ==========================================
-// EKSPORT DO PDF
-// ==========================================
+/* ==========================================
+   EKSPORT DO PDF
+========================================== */
 document.getElementById("exportPDF").addEventListener("click", () => {
     const element = document.getElementById("output");
 
     const opt = {
-        margin: 10,
-        filename: 'instrukcja.pdf',
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin:       10,
+        filename:     'instrukcja.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     html2pdf().set(opt).from(element).save();
 });
-
-// ==========================================
-// START
-// ==========================================
-addStep("");
-updatePreview();
