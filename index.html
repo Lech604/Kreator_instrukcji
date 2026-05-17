@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kreatory Instrukcji</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f13;
+      --card-bg: #17171d;
+      --border: #2a2a35;
+      --accent1: #4f8ef7;
+      --accent2: #38d9a9;
+      --text: #f0f0f5;
+      --muted: #8888a0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      overflow-x: hidden;
+    }
+
+    /* Tło - siatka */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 64px;
+      position: relative;
+    }
+
+    .tagline {
+      font-size: 12px;
+      font-family: 'Syne', sans-serif;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--accent1);
+      margin-bottom: 16px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.1s forwards;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.2s forwards;
+    }
+
+    h1 span {
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 300;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.3s forwards;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 36px;
+      text-decoration: none;
+      color: var(--text);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+      opacity: 0;
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.4s; }
+    .card:nth-child(2) { animation-delay: 0.55s; }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 20px 20px 0 0;
+      background: linear-gradient(90deg, var(--c1), var(--c2));
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+
+    .card:hover::before { opacity: 1; }
+
+    .card-1 { --c1: #4f8ef7; --c2: #7b6ff0; }
+    .card-2 { --c1: #38d9a9; --c2: #4f8ef7; }
+
+    .card:hover.card-1 { border-color: #4f8ef740; }
+    .card:hover.card-2 { border-color: #38d9a940; }
+
+    .card-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-1 .card-icon { background: #4f8ef715; }
+    .card-2 .card-icon { background: #38d9a915; }
+
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .card-desc {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-family: 'Syne', sans-serif;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .card-arrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: gap 0.2s ease;
+    }
+
+    .card-1 .card-arrow { color: var(--accent1); }
+    .card-2 .card-arrow { color: var(--accent2); }
+
+    .card:hover .card-arrow { gap: 14px; }
+
+    .arrow { font-size: 18px; }
+
+    footer {
+      margin-top: 64px;
+      color: var(--muted);
+      font-size: 12px;
+      opacity: 0;
+      animation: fadeUp 0.6s ease 0.7s forwards;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="tagline">Narzędzia dokumentacji</div>
+    <h1>Wybierz <span>kreator</span></h1>
+    <p class="subtitle">Dwa narzędzia do tworzenia profesjonalnych instrukcji PDF</p>
+  </header>
+
+  <div class="cards">
+    <a href="kreator1/index.html" class="card card-1">
+      <div class="card-icon">📋</div>
+      <div class="card-title">Kreator Uniwersalny</div>
+      <div class="card-desc">Twórz wielokrokowe instrukcje dowolnego typu ze zdjęciami, opisami i automatyczną numeracją.</div>
+      <div class="card-tags">
+        <span class="tag">Wielokrokowy</span>
+        <span class="tag">Zdjęcia</span>
+        <span class="tag">Eksport PDF</span>
+      </div>
+      <div class="card-arrow">Otwórz kreator <span class="arrow">→</span></div>
+    </a>
+
+    <a href="kreator2/index.html" class="card card-2">
+      <div class="card-icon">💡</div>
+      <div class="card-title">Kreator Oświetlenia</div>
+      <div class="card-desc">Specjalistyczny kreator instrukcji sterowania oświetleniem — Vertex, Node-RED, BMS.</div>
+      <div class="card-tags">
+        <span class="tag">Vertex</span>
+        <span class="tag">Node-RED</span>
+        <span class="tag">BMS</span>
+      </div>
+      <div class="card-arrow">Otwórz kreator <span class="arrow">→</span></div>
+    </a>
+  </div>
+
+  <footer>Kreatory Instrukcji &mdash; prolight solutions</footer>
+
+</body>
+</html>
