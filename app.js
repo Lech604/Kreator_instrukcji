@@ -94,6 +94,7 @@ function addImageToStep(stepDiv) {
             <button class="imgPlus">➕</button>
         </div>
 
+        <textarea class="afterImageText" placeholder="Tekst po zdjęciu (opcjonalnie)..." rows="2"></textarea>
         <button class="deleteImage">Usuń zdjęcie</button>
     `;
 
@@ -148,6 +149,7 @@ function addImageToStep(stepDiv) {
 
     // Podpis zdjęcia
     block.querySelector(".imageCaption").addEventListener("input", updatePreview);
+    block.querySelector(".afterImageText").addEventListener("input", updatePreview);
 }
 /* ==========================================
    GENEROWANIE PODGLĄDU
@@ -191,11 +193,13 @@ function updatePreview() {
                 const img = imgBlock.querySelector("img");
                 const caption = imgBlock.querySelector(".imageCaption").value;
 
+                const afterText = nl2br(imgBlock.querySelector(".afterImageText").value);
                 if (img.src && img.style.display !== "none") {
                     html += `
                         <div class="imagePreview">
                             <img src="${img.src}" style="width:${img.style.width || '100%'};">
                             ${caption ? `<p>${caption}</p>` : ""}
+                            ${afterText ? `<div class="afterImageTextPreview">${afterText}</div>` : ""}
                         </div>
                     `;
                 }
