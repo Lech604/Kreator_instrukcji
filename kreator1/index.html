@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Kreator instrukcji – Uniwersalny</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- PDF export -->
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+
+<body>
+
+<div id="app">
+
+  <!-- LEWA KOLUMNA – EDYTOR -->
+  <div id="editor">
+    <h2>Edytor instrukcji_v13</h2>
+
+    <label for="title">Tytuł instrukcji:</label>
+    <input type="text" id="title" placeholder="Np. Adresowanie urządzeń DALI">
+
+    <label for="description">Opis instrukcji:</label>
+    <textarea id="description" placeholder="Krótki opis instrukcji..."></textarea>
+
+    <h3>Kroki</h3>
+    <div id="stepsContainer"></div>
+    <button id="addStep">➕ Dodaj krok</button>
+
+    <h3>Zakończenie instrukcji</h3>
+    <textarea id="ending" placeholder="Np. Instrukcja zakończona. W razie pytań skontaktuj się z działem technicznym."></textarea>
+
+    <h3>Oznaczenie zdjęć</h3>
+    <select id="photoPrefix">
+      <option value="Fot.">Fot. (fotografia)</option>
+      <option value="Rys.">Rys. (rysunek)</option>
+      <option value="Fig.">Fig. (figure)</option>
+      <option value="">Brak oznaczenia</option>
+    </select>
+
+    <h3>Szablon</h3>
+    <select id="templateSelect">
+      <option value="default">Domyślny</option>
+      <option value="tech">Techniczny</option>
+      <option value="dali">DALI</option>
+      <option value="ikea">IKEA‑style</option>
+    </select>
+
+    <button id="exportPDF">Eksportuj do PDF</button>
+  </div>
+  <!-- PRAWA KOLUMNA – PODGLĄD -->
+  <div id="preview">
+    <h2>Podgląd instrukcji</h2>
+    <div id="output"></div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
