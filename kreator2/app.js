@@ -531,6 +531,197 @@ async function exportPDF(){
   btn.disabled=false;
 }
 
+
+// ── IMPORT NODE-RED ──────────────────────────────────────────────────────
+function importNodeRed(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const nodes = JSON.parse(ev.target.result);
+      parseNodeRedFlow(nodes);
+      input.value = '';
+    } catch(e) {
+      alert('Błąd parsowania JSON: ' + e.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseNodeRedFlow(nodes) {
+  // Wyciągnij vertex-profile nodes
+  const profiles = nodes.filter(n => n.type === 'vertex-profile');
+
+  if (profiles.length === 0) {
+    alert('Nie znaleziono węzłów vertex-profile w tym pliku.');
+    return;
+  }
+
+  // Mapowanie cp_schema na czytelne opisy akcji
+  function describeSchema(schema) {
+    if (!schema) return '';
+    try {
+      const arr = JSON.parse(schema);
+      return arr.map(v => {
+        if (v === 'UP') return '▲ ściemnij w górę';
+        if (v === 'DOWN') return '▼ ściemnij w dół';
+        if (v === 'AUTO') return '⚡ AUTO';
+        if (typeof v === 'number') return v + '%';
+        return String(v);
+      }).join(' → ');
+    } catch { return schema; }
+  }
+
+  // Mapowanie controlType
+  function getControlType(p) {
+    const hasMs = p.ms_is_used === true || p.ms_is_used === 'true';
+    const hasCp = p.cp_is_used === true || p.cp_is_used === 'true';
+    if (hasMs && hasCp) return 'both';
+    if (hasMs) return 'sensor';
+    return 'button';
+  }
+
+  // Grupowanie profili w sekcje - jeden profil = jedna strefa
+  // Grupujemy po pierwszym słowie nazwy (np. CORRIDOR_X → CORRIDOR)
+  const sectionMap = {};
+  profiles.forEach(p => {
+    const baseName = p.name.split('_')[0] || p.name;
+    if (!sectionMap[baseName]) sectionMap[baseName] = [];
+    sectionMap[baseName].push(p);
+  });
+
+  // Kolory dla kolejnych stref
+  const colorIds = ['blue', 'purple', 'green', 'amber', 'red', 'gray'];
+
+  // Buduj nowe sekcje
+  const newSections = Object.entries(sectionMap).map(([secName, profs], si) => {
+    const zones = profs.map((p, zi) => {
+      const ctrl = getControlType(p);
+      const schemaDesc = describeSchema(p.cp_schema);
+
+      // Buduj reguły logiki z parametrów sensora
+      const rules = [];
+      const hasMs = p.ms_is_used === true || p.ms_is_used === 'true';
+      const hasLs = p.ls_is_used === true || p.ls_is_used === 'true';
+
+      if (hasMs) {
+        rules.push({
+          id: Date.now() + zi * 100 + 1,
+          trigger: 'Wykrycie ruchu',
+          action: `Włącz ${p.ms_level_on}%`,
+          note: `Hold: ${p.ms_time_hold}s`
+        });
+        rules.push({
+          id: Date.now() + zi * 100 + 2,
+          trigger: `Brak ruchu przez ${p.ms_time_hold}s`,
+          action: `Standby ${p.ms_level_standby}%`,
+          note: `Standby: ${p.ms_time_standby}s`
+        });
+        rules.push({
+          id: Date.now() + zi * 100 + 3,
+          trigger: `Brak ruchu przez ${parseInt(p.ms_time_hold)+parseInt(p.ms_time_standby)}s`,
+          action: `Wyłącz (${p.ms_level_off}%)`,
+          note: `Dead: ${p.ms_time_dead}s`
+        });
+      }
+
+      if (hasLs) {
+        rules.push({
+          id: Date.now() + zi * 100 + 4,
+          trigger: 'Czujnik światła aktywny',
+          action: `Utrzymuj ${p.ls_target} lux (±${p.ls_tolerance})`,
+          note: `Zakres: ${p.ls_limit_min}–${p.ls_limit_max}%`
+        });
+      }
+
+      // Klucze z cp_schema
+      const buttonKeys = [];
+      if (p.cp_is_used === true || p.cp_is_used === 'true') {
+        try {
+          const schema = JSON.parse(p.cp_schema);
+          schema.forEach((val, idx) => {
+            if (typeof val === 'number') {
+              buttonKeys.push({
+                id: Date.now() + zi * 1000 + idx,
+                label: `Scena ${val}%`,
+                pos: idx % 2 === 0 ? 'left' : 'right',
+                actions: [{
+                  id: Date.now() + zi * 1000 + idx + 500,
+                  type: 'short1',
+                  func: `Ustaw jasność ${val}%`
+                }]
+              });
+            } else if (val === 'UP') {
+              buttonKeys.push({
+                id: Date.now() + zi * 1000 + idx,
+                label: 'Ściemnij +',
+                pos: 'left',
+                actions: [{
+                  id: Date.now() + zi * 1000 + idx + 500,
+                  type: 'long1',
+                  func: 'Ściemnij w górę (HOLDUP)'
+                }]
+              });
+            } else if (val === 'DOWN') {
+              buttonKeys.push({
+                id: Date.now() + zi * 1000 + idx,
+                label: 'Ściemnij -',
+                pos: 'right',
+                actions: [{
+                  id: Date.now() + zi * 1000 + idx + 500,
+                  type: 'long2',
+                  func: 'Ściemnij w dół (HOLDDOWN)'
+                }]
+              });
+            }
+          });
+        } catch(e) {}
+      }
+
+      // Podstrefy jako opis
+      const subzonesDesc = p.zones && p.zones.length > 0
+        ? p.zones.map(z => `${z.name} (offset: ${z.zone_percentage_offset}%)`).join(', ')
+        : '';
+
+      return {
+        id: Date.now() + si * 10000 + zi,
+        name: p.name,
+        description: [
+          ctrl === 'sensor' ? 'Tylko czujnik ruchu' :
+          ctrl === 'both' ? 'Przycisk + czujnik ruchu' : 'Tylko przycisk',
+          schemaDesc ? `Schemat: ${schemaDesc}` : '',
+          subzonesDesc ? `Podstrefy: ${subzonesDesc}` : ''
+        ].filter(Boolean).join(' | '),
+        colorId: colorIds[zi % colorIds.length],
+        controlType: ctrl,
+        buttonKeys,
+        logicRules: rules
+      };
+    });
+
+    return {
+      id: Date.now() + si * 100000,
+      name: secName,
+      image: null,
+      zones
+    };
+  });
+
+  // Potwierdź import
+  const totalZones = newSections.reduce((a, s) => a + s.zones.length, 0);
+  const msg = `Znaleziono ${profiles.length} profili Vertex w ${newSections.length} sekcjach (${totalZones} stref).\n\nCzy zastąpić obecną konfigurację?`;
+
+  if (confirm(msg)) {
+    sections = newSections;
+    secCnt = newSections.length + 10;
+    zoneCnt = totalZones + 10;
+    renderSections();
+    goTo(2);
+    alert(`✓ Zaimportowano ${totalZones} stref z Node-RED!`);
+  }
+}
+
 function openExport(){document.getElementById('export-modal').classList.remove('hidden');}
 function closeExport(){document.getElementById('export-modal').classList.add('hidden');}
 
