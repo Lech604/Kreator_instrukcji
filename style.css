@@ -173,7 +173,7 @@
 }
 
 #output .imagePreview img {
-  margin-top: 10px;
+  margin-top: 4px;
   border-radius: 6px;
 }
 
@@ -220,4 +220,25 @@
 #output {
   background: #ffffff;
   color: #000000;
+}
+
+/* Pole tekstowe po zdjęciu - edytor */
+.afterImageText {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+/* Pole tekstowe po zdjęciu - podgląd/PDF */
+#output .afterImageTextPreview {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #333;
+  line-height: 1.4;
 }
