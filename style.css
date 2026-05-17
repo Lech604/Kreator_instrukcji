@@ -205,3 +205,19 @@
 #exportPDF:hover {
   background: #145214;
 }
+
+/* PDF - zapobiegaj przecinaniu elementów między stronami */
+#output .imagePreview {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+#output ol li {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+#output {
+  background: #ffffff;
+  color: #000000;
+}
