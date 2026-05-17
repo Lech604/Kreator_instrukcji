@@ -463,62 +463,72 @@ ${noteH}
 }
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
-function exportPDF(){
-  const {title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
+async function exportPDF(){
+  const btn=document.getElementById('btn-exp-pdf');
+  const statusEl=document.getElementById('exp-status');
 
-  // Button image directly embedded in sectionsDetailH already
-  // Open a print window with full styled content
-  const win=window.open('','_blank','width=900,height=700');
-  if(!win){
-    alert('Przeglądarka zablokowała okno popup. Zezwól na popupy dla tej strony i spróbuj ponownie.');
-    return;
+  function setStatus(type,msg){
+    statusEl.className='status-bar status-'+type;
+    statusEl.classList.remove('hidden');
+    statusEl.innerHTML=msg;
   }
 
-  win.document.write(`<!DOCTYPE html>
-<html lang="pl">
-<head>
-<meta charset="UTF-8">
-<title>${e(title)}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',system-ui,sans-serif;background:#fff;color:#111827;padding:0}
-.page{max-width:800px;margin:0 auto;padding:28px 24px}
-@media print{
-  body{background:#fff}
-  .page{padding:0;max-width:100%}
-  .no-print{display:none!important}
-  @page{margin:12mm 10mm;size:A4}
-}
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="no-print" style="background:#111827;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;border-radius:8px">
-    <span style="font-size:13px">Kliknij "Drukuj" i wybierz "Zapisz jako PDF"</span>
-    <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🖨 Drukuj / Zapisz PDF</button>
-  </div>
+  btn.disabled=true;
+  setStatus('info','<span class="spin">⟳</span> Generuję PDF…');
 
-  <div style="background:#111827;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
-    <div style="font-size:20px;font-weight:700">${e(title)}</div>
-    ${subtitle?`<div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:4px">${e(subtitle)}</div>`:''}
-    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH}</div>
-  </div>
+  try {
+    // Build a hidden render div
+    const {title,subtitle,tagsH,sectionsDetailH,btnImgH,noteH}=buildHTMLContent();
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-9999px;top:0;width:794px;background:#fff;font-family:DM Sans,system-ui,sans-serif;color:#111827;padding:32px;';
+    wrap.innerHTML=`
+      <div style="background:#111827;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
+        <div style="font-size:20px;font-weight:700">${e(title)}</div>
+        ${subtitle?`<div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${e(subtitle)}</div>`:''}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH.replace(/rgba\(255,255,255,\.12\)/g,'#2d3748')}</div>
+      </div>
+      ${sectionsDetailH}
+      ${btnImgH}
+      ${noteH}`;
+    document.body.appendChild(wrap);
 
-  ${sectionsDetailH}
-  ${noteH}
-</div>
-<script>
-  // Auto-trigger print after fonts load
-  window.onload=function(){
-    setTimeout(function(){ window.print(); },800);
-  };
-<\/script>
-</body>
-</html>`);
+    // Wait for images to load
+    await Promise.all([...wrap.querySelectorAll('img')].map(img=>
+      img.complete ? Promise.resolve() :
+      new Promise(res=>{img.onload=res;img.onerror=res;})
+    ));
+    await new Promise(r=>setTimeout(r,300));
 
-  win.document.close();
-  closeExport();
+    const canvas=await html2canvas(wrap,{
+      scale:2,useCORS:true,allowTaint:true,
+      width:794,backgroundColor:'#fff',
+      logging:false
+    });
+    document.body.removeChild(wrap);
+
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pageW=pdf.internal.pageSize.getWidth();
+    const pageH=pdf.internal.pageSize.getHeight();
+    const imgData=canvas.toDataURL('image/jpeg',0.92);
+    const imgW=pageW;
+    const imgH=(canvas.height*pageW)/canvas.width;
+
+    let y=0;
+    while(y<imgH){
+      if(y>0)pdf.addPage();
+      pdf.addImage(imgData,'JPEG',0,y>0?-(y):0,imgW,imgH,undefined,'FAST');
+      y+=pageH;
+    }
+
+    pdf.save('instrukcja.pdf');
+    setStatus('ok','✓ PDF zapisany!');
+    setTimeout(()=>{statusEl.classList.add('hidden');closeExport();},1500);
+  } catch(err){
+    setStatus('err','Błąd: '+err.message);
+    console.error(err);
+  }
+  btn.disabled=false;
 }
 
 function openExport(){document.getElementById('export-modal').classList.remove('hidden');}
