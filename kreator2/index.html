@@ -119,15 +119,17 @@
       ✓ Logika sterowania z krokami i strzałkami<br>
       ✓ Alternatywnie: HTML do wydruku (Ctrl+P)
     </div>
+    <div id="exp-status" class="hidden status-bar"></div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-green btn-full" onclick="exportPDF()">🖨 Otwórz podgląd wydruku (PDF)</button>
+      <button class="btn btn-green btn-full" id="btn-exp-pdf" onclick="exportPDF()">⬇ Pobierz PDF</button>
       <button class="btn btn-outline btn-full" onclick="exportHTML()" style="font-size:12px">⬇ Pobierz HTML</button>
     </div>
-    <p style="font-size:11px;color:#9ca3af;margin-top:8px;text-align:center">Otworzy się nowe okno → kliknij "Drukuj" → wybierz "Zapisz jako PDF"</p>
   </div>
 </div>
 
 <!-- PDF libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
