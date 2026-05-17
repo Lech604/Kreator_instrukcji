@@ -193,7 +193,7 @@ function updatePreview() {
                 const img = imgBlock.querySelector("img");
                 const caption = imgBlock.querySelector(".imageCaption").value;
 
-                const afterText = imgBlock.querySelector(".afterImageText").value;
+                const afterText = nl2br(imgBlock.querySelector(".afterImageText").value);
                 if (img.src && img.style.display !== "none") {
                     html += `
                         <div class="imagePreview">
