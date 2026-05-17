@@ -175,6 +175,8 @@
 #output .imagePreview img {
   margin-top: 4px;
   border-radius: 6px;
+  max-height: 200mm;
+  object-fit: contain;
 }
 
 #output .imagePreview p {
@@ -210,6 +212,7 @@
 #output .imagePreview {
   page-break-inside: avoid;
   break-inside: avoid;
+  margin-bottom: 8px;
 }
 
 #output ol li {

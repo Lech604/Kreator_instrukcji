@@ -18,6 +18,7 @@ document.getElementById("title").addEventListener("input", updatePreview);
 document.getElementById("description").addEventListener("input", updatePreview);
 document.getElementById("ending").addEventListener("input", updatePreview);
 document.getElementById("templateSelect").addEventListener("change", updatePreview);
+document.getElementById("photoPrefix").addEventListener("change", updatePreview);
 
 /* ==========================================
    DODAWANIE KROKU
@@ -177,9 +178,22 @@ function updatePreview() {
     if (steps.length > 0) {
         html += "<ol>";
 
+        let photoCounter = 0;
+
         steps.forEach(step => {
             const stepTitle = step.querySelector(".stepInput").value;
             const stepLong = nl2br(step.querySelector(".stepLongText").value);
+
+            // Sprawdź czy krok ma zdjęcia - jeśli tak, owijamy wszystko w blok avoid-break
+            const images = step.querySelectorAll(".imageBlock");
+            const hasImages = Array.from(images).some(b => {
+                const img = b.querySelector("img");
+                return img.src && img.style.display !== "none";
+            });
+
+            if (hasImages) {
+                html += `<div class="stepBlock">`;
+            }
 
             html += `<li>${stepTitle}</li>`;
 
@@ -188,22 +202,30 @@ function updatePreview() {
             }
 
             // Zdjęcia
-            const images = step.querySelectorAll(".imageBlock");
             images.forEach(imgBlock => {
                 const img = imgBlock.querySelector("img");
                 const caption = imgBlock.querySelector(".imageCaption").value;
-
                 const afterText = nl2br(imgBlock.querySelector(".afterImageText").value);
+
                 if (img.src && img.style.display !== "none") {
+                    photoCounter++;
+                    const prefix = document.getElementById("photoPrefix").value;
+                    const fotLabel = prefix
+                        ? (caption ? `${prefix} ${photoCounter}: ${caption}` : `${prefix} ${photoCounter}`)
+                        : (caption ? caption : "");
                     html += `
                         <div class="imagePreview">
                             <img src="${img.src}" style="width:${img.style.width || '100%'};">
-                            ${caption ? `<p>${caption}</p>` : ""}
+                            ${fotLabel ? `<p class="fotCaption">${fotLabel}</p>` : ""}
                             ${afterText ? `<div class="afterImageTextPreview">${afterText}</div>` : ""}
                         </div>
                     `;
                 }
             });
+
+            if (hasImages) {
+                html += `</div>`;
+            }
         });
 
         html += "</ol>";
@@ -238,5 +260,15 @@ document.getElementById("exportPDF").addEventListener("click", () => {
         pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    html2pdf().set(opt).from(element).save();
+    html2pdf().set(opt).from(element).toPdf().get('pdf').then(pdf => {
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(10);
+            pdf.setTextColor(150);
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            pdf.text(`${i} / ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+        }
+    }).save();
 });
