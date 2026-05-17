@@ -20,6 +20,8 @@
   </div>
   <div class="topbar-btns">
     <button class="btn btn-outline btn-sm" onclick="goTo(4)">Podgląd</button>
+    <button class="btn btn-outline btn-sm" onclick="document.getElementById('nr-import-input').click()">⬆ Import Node-RED</button>
+    <input type="file" id="nr-import-input" accept=".json" class="hidden" onchange="importNodeRed(this)">
     <button class="btn btn-green btn-sm" onclick="openExport()">⬇ Eksportuj</button>
   </div>
 </div>
@@ -95,7 +97,9 @@
   <div id="page-4" class="hidden">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span style="font-size:15px;font-weight:700">Podgląd instrukcji</span>
-      <button class="btn btn-green btn-sm" onclick="openExport()">⬇ Eksportuj</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('nr-import-input').click()">⬆ Import Node-RED</button>
+    <input type="file" id="nr-import-input" accept=".json" class="hidden" onchange="importNodeRed(this)">
+    <button class="btn btn-green btn-sm" onclick="openExport()">⬇ Eksportuj</button>
     </div>
     <div id="preview-out"></div>
     <div class="nav-btns">
