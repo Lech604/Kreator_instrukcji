@@ -12,20 +12,40 @@ const COLS=[
 ];
 const COL=id=>COLS.find(c=>c.id===id)||COLS[0];
 const CTRL={button:'tylko przycisk',sensor:'tylko sensor',both:'przycisk + sensor'};
+const PANEL_TYPES=[
+  {id:'pb2',label:'PB2 — 2 klawisze',keys:[1,2]},
+  {id:'pb4',label:'PB4 — 4 klawisze',keys:[1,2,3,4]},
+  {id:'pb6',label:'PB6 — 6 klawiszy',keys:[1,2,3,4,5,6]},
+  {id:'pb8',label:'PB8 — 8 klawiszy',keys:[1,2,3,4,5,6,7,8]},
+];
+const ACTION_LABELS={'short1':'krótkie','long1':'długie','long2':'2× długie','short2':'2× krótkie'};
+const ACTION_CSS={'short1':'at-short1','long1':'at-long1','long2':'at-long2','short2':'at-short2'};
+const ACTION_LABELS_E={'short1':'krótkie naciśnięcie','long1':'długie przytrzymanie','long2':'2× długie przytrzymanie','short2':'2× krótkie naciśnięcie'};
+const ACTION_COLORS={'short1':'#dbeafe','long1':'#e0e7ff','long2':'#ede9fe','short2':'#fce7f3'};
+const ACTION_TEXT={'short1':'#1e40af','long1':'#3730a3','long2':'#5b21b6','short2':'#9d174d'};
 
 let curStep=0;
 let btnImgB64=null;
+let btnPanelType='pb8';
 let secCnt=2, zoneCnt=10;
+// keyMap[sid][keyNum] = zid  (which zone owns this key)
+let keyMap={};
+// activeZone[sid] = zid  (selected zone in panel picker)
+let activeZone={};
 
-let sections=[
-  mkSection(1,'ENGINEERING'),
-];
+let sections=[mkSection(1,'ENGINEERING')];
+
 function mkSection(id,name){
-  return {id,name,image:null,zones:[mkZone(zoneCnt++,'S1','blue'),mkZone(zoneCnt++,'S2','purple'),mkZone(zoneCnt++,'S3','green')]};
+  return {id,name,image:null,zones:[
+    mkZone(zoneCnt++,'S1','blue'),
+    mkZone(zoneCnt++,'S2','purple'),
+    mkZone(zoneCnt++,'S3','green'),
+  ]};
 }
 function mkZone(id,name,colorId){
   return {id,name,description:'',colorId,controlType:'button',buttonKeys:[],logicRules:[]};
 }
+function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ── STEPS ────────────────────────────────────────────────────────────────
 const SNAMES=['Ustawienia','Przycisk','Sekcje','Logika','Podgląd'];
@@ -50,7 +70,7 @@ function goTo(n){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ── BUTTON IMAGE ─────────────────────────────────────────────────────────
+// ── BUTTON IMAGE ──────────────────────────────────────────────────────────
 function handleBtnFile(f){
   if(!f)return;
   const r=new FileReader();
@@ -60,6 +80,7 @@ function handleBtnFile(f){
     document.getElementById('btn-prev').classList.remove('hidden');
     document.getElementById('btn-ph').classList.add('hidden');
     document.getElementById('btn-rm').classList.remove('hidden');
+    renderPanelTypeSelector();
   };
   r.readAsDataURL(f);
 }
@@ -71,7 +92,131 @@ function removeBtnImg(){
   document.getElementById('btn-rm').classList.add('hidden');
 }
 
-// ── SECTIONS ─────────────────────────────────────────────────────────────
+function renderPanelTypeSelector(){
+  const el=document.getElementById('panel-type-selector');
+  if(!el)return;
+  el.innerHTML=`
+    <label class="lbl" style="margin-bottom:8px;display:block">Typ panelu</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${PANEL_TYPES.map(pt=>`
+        <button class="ctrl-btn${btnPanelType===pt.id?' active':''}"
+          onclick="setPanelType('${pt.id}')">${pt.label}</button>
+      `).join('')}
+    </div>`;
+}
+
+function setPanelType(id){
+  btnPanelType=id;
+  renderPanelTypeSelector();
+  renderSections();
+}
+
+// ── KEY MAP ────────────────────────────────────────────────────────────────
+function getMap(sid){if(!keyMap[sid])keyMap[sid]={};return keyMap[sid];}
+function getActive(sid){
+  const sec=sections.find(s=>s.id===sid);
+  if(!sec||!sec.zones.length)return null;
+  if(!activeZone[sid])activeZone[sid]=sec.zones[0].id;
+  return activeZone[sid];
+}
+function setActive(sid,zid){activeZone[sid]=zid;renderPanelPicker(sid);}
+
+function toggleKey(sid,kn){
+  const map=getMap(sid);
+  const az=getActive(sid);
+  if(!az)return;
+  if(map[kn]===az){delete map[kn];}
+  else{map[kn]=az;}
+  renderPanelPicker(sid);
+  syncKeys(sid);
+}
+
+function syncKeys(sid){
+  const map=getMap(sid);
+  sections=sections.map(s=>{
+    if(s.id!==sid)return s;
+    return {...s,zones:s.zones.map(z=>{
+      const assigned=Object.entries(map)
+        .filter(([,v])=>v===z.id)
+        .map(([k])=>parseInt(k))
+        .sort((a,b)=>a-b);
+      // rebuild buttonKeys: keep existing for assigned panel keys, remove unassigned
+      const existingMap=new Map((z.buttonKeys||[]).map(k=>[k.panelKey,k]));
+      const newKeys=assigned.map(kn=>{
+        if(existingMap.has(kn))return existingMap.get(kn);
+        return {id:Date.now()+(Math.random()*9999|0),label:`K${kn}`,panelKey:kn,actions:[{id:Date.now()+1,type:'short1',func:''}]};
+      });
+      return {...z,buttonKeys:newKeys};
+    })};
+  });
+  renderSections();
+}
+
+// ── PANEL PICKER ──────────────────────────────────────────────────────────
+function renderPanelPicker(sid){
+  const el=document.getElementById('ppick-'+sid);
+  if(!el)return;
+  const sec=sections.find(s=>s.id===sid);
+  if(!sec)return;
+  const pt=PANEL_TYPES.find(p=>p.id===btnPanelType)||PANEL_TYPES[3];
+  const map=getMap(sid);
+  const az=getActive(sid);
+
+  // zone tabs
+  const tabs=sec.zones.map(z=>{
+    const c=COL(z.colorId);
+    const cnt=Object.values(map).filter(v=>v===z.id).length;
+    const act=z.id===az;
+    return `<div class="ppick-tab${act?' active':''}"
+      style="${act?`border-color:${c.border};background:${c.bg};`:'border-color:#e5e7eb;background:#fff'}"
+      onclick="setActive(${sid},${z.id})">
+      <span class="ppick-dot" style="background:${c.dot}"></span>
+      <span style="font-size:12px;font-weight:600;color:${act?c.text:'#374151'}">${e(z.name)}</span>
+      ${cnt?`<span class="ppick-cnt" style="background:${c.dot};color:#fff">${cnt}</span>`:''}
+    </div>`;
+  }).join('');
+
+  // panel keys grid — left col odd, right col even
+  const leftKeys=pt.keys.filter((_,i)=>i%2===0);
+  const rightKeys=pt.keys.filter((_,i)=>i%2!==0);
+
+  function renderKey(kn){
+    const ownerZid=map[kn];
+    const ownerZone=ownerZid?sec.zones.find(z=>z.id===ownerZid):null;
+    const c=ownerZone?COL(ownerZone.colorId):null;
+    const isActive=ownerZid===az;
+    return `<div class="pb-key${ownerZid?' assigned':''}"
+      style="${c?`background:${c.dot};border-color:${c.dot};color:#fff`:'background:#2d2d2d;border-color:#444;color:#aaa'}"
+      onclick="toggleKey(${sid},${kn})"
+      title="${ownerZone?ownerZone.name:'Nieprzypisany'}">
+      <span class="pb-key-num">${kn}</span>
+      ${ownerZone?`<span class="pb-key-zone">${e(ownerZone.name)}</span>`:''}
+    </div>`;
+  }
+
+  const grid=`
+    <div class="pb-panel">
+      <div class="pb-col">${leftKeys.map(renderKey).join('')}</div>
+      <div class="pb-center">${Array(6).fill('<div class="pb-led"></div>').join('')}</div>
+      <div class="pb-col">${rightKeys.map(renderKey).join('')}</div>
+    </div>`;
+
+  el.innerHTML=`
+    <div class="ppick-wrap">
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px">1. Wybierz strefę</div>
+        <div class="ppick-tabs">${tabs}</div>
+        <p style="font-size:11px;color:#9ca3af;margin-top:8px">Kliknij strefę, potem klawisze panelu które nią sterują.</p>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px">2. Kliknij klawisze</div>
+        ${grid}
+        <p style="font-size:11px;color:#9ca3af;margin-top:6px;text-align:center">Kliknij ponownie aby odznaczyć</p>
+      </div>
+    </div>`;
+}
+
+// ── SECTIONS ──────────────────────────────────────────────────────────────
 function addSection(){sections.push(mkSection(secCnt++,'Sekcja '+secCnt));renderSections();}
 function delSection(sid){sections=sections.filter(s=>s.id!==sid);renderSections();}
 function toggleSection(sid){document.getElementById('sbody-'+sid).classList.toggle('hidden');}
@@ -108,6 +253,9 @@ function addZone(sid){
   renderSections();
 }
 function delZone(sid,zid){
+  // remove key assignments for this zone
+  const map=getMap(sid);
+  Object.keys(map).forEach(k=>{if(map[k]===zid)delete map[k];});
   sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.filter(z=>z.id!==zid)}:s);
   renderSections();
 }
@@ -116,29 +264,24 @@ function setZ(sid,zid,k,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zon
 function setZColor(sid,zid,cid){setZ(sid,zid,'colorId',cid);renderSections();}
 function setZCtrl(sid,zid,v){setZ(sid,zid,'controlType',v);renderSections();}
 
-function addKey(sid,zid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:[...z.buttonKeys,{id:Date.now(),label:'',pos:'left',actions:[{id:Date.now()+1,type:'short1',func:''}]}]}:z)}:s);renderSections();}
 function addAction(sid,zid,kid){
   sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>{
     if(k.id!==kid)return k;
     const used=k.actions.map(a=>a.type);
-    const all=['short1','long1','long2','short2'];
-    const next=all.find(t=>!used.includes(t));
+    const next=['short1','long1','long2','short2'].find(t=>!used.includes(t));
     if(!next)return k;
     return {...k,actions:[...k.actions,{id:Date.now(),type:next,func:''}]};
-  })}:z)}:s);renderSections();
+  })}:z)}:s);
+  renderSections();
 }
 function setAction(sid,zid,kid,aid,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>k.id===kid?{...k,actions:k.actions.map(a=>a.id===aid?{...a,func:v}:a)}:k)}:z)}:s);}
 function delAction(sid,zid,kid,aid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>k.id===kid?{...k,actions:k.actions.filter(a=>a.id!==aid)}:k)}:z)}:s);renderSections();}
-function setKey(sid,zid,kid,f,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>k.id===kid?{...k,[f]:v}:k)}:z)}:s);}
-function delKey(sid,zid,kid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.filter(k=>k.id!==kid)}:z)}:s);renderSections();}
 
 function addRule(sid,zid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:[...z.logicRules,{id:Date.now(),trigger:'',action:'',note:''}]}:z)}:s);renderSections();}
 function setRule(sid,zid,rid,f,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:z.logicRules.map(r=>r.id===rid?{...r,[f]:v}:r)}:z)}:s);}
 function delRule(sid,zid,rid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:z.logicRules.filter(r=>r.id!==rid)}:z)}:s);renderSections();}
 
-function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
-// ── RENDER SECTIONS ───────────────────────────────────────────────────────
+// ── RENDER SECTIONS ────────────────────────────────────────────────────────
 function renderSections(){
   const list=document.getElementById('sections-list');
   const emp=document.getElementById('sections-empty');
@@ -149,15 +292,13 @@ function renderSections(){
     const totalZones=sec.zones.length;
     const div=document.createElement('div');
     div.className='sec-wrap';
+    div.id='sec-card-'+sec.id;
 
     let zonesHTML=sec.zones.map(z=>{
       const c=COL(z.colorId);
-      const ACTION_LABELS={'short1':'krótkie','long1':'długie','long2':'2× długie','short2':'2× krótkie'};
-      const ACTION_CSS={'short1':'at-short1','long1':'at-long1','long2':'at-long2','short2':'at-short2'};
       const keysH=(z.buttonKeys||[]).map(k=>{
         const acts=k.actions||[];
         const used=acts.map(a=>a.type);
-        const allTypes=['short1','long1','long2','short2'];
         const canAdd=used.length<4;
         const actionsH=acts.map(a=>`
           <div class="action-row">
@@ -167,14 +308,11 @@ function renderSections(){
           </div>`).join('');
         return `<div class="key-row">
           <div class="key-row-top">
-            <input class="inp" style="font-size:12px" placeholder="Nazwa klawisza np. K1" value="${e(k.label)}" oninput="setKey(${sec.id},${z.id},${k.id},'label',this.value)">
-            <div style="font-size:10px;color:#9ca3af;padding-top:6px">Pozycja na panelu</div>
-            <select class="inp" style="font-size:11px;padding:8px 5px" onchange="setKey(${sec.id},${z.id},${k.id},'pos',this.value)">
-              <option value="left"${k.pos==='left'?' selected':''}>lewa</option>
-              <option value="right"${k.pos==='right'?' selected':''}>prawa</option>
-              <option value="center"${k.pos==='center'?' selected':''}>środek</option>
-            </select>
-            <button class="xbtn" onclick="delKey(${sec.id},${z.id},${k.id})">×</button>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="pb-key-badge">K${k.panelKey||'?'}</span>
+              <input class="inp" style="font-size:12px;flex:1" placeholder="Opis klawisza" value="${e(k.label)}" oninput="(function(){const sec=sections.find(s=>s.id===${sec.id});const z=sec&&sec.zones.find(z=>z.id===${z.id});const k=z&&z.buttonKeys.find(k=>k.id===${k.id});if(k)k.label=this.value}).call(this)">
+            </div>
+            <button class="xbtn" style="margin-left:auto" onclick="(function(){const map=getMap(${sec.id});Object.keys(map).forEach(n=>{if(map[n]===${z.id}&&parseInt(n)===${k.panelKey||0})delete map[n]});syncKeys(${sec.id})})()">×</button>
           </div>
           <div class="key-actions">
             ${actionsH}
@@ -182,6 +320,7 @@ function renderSections(){
           </div>
         </div>`;
       }).join('');
+
       const rulesH=z.logicRules.map((r,ri)=>`
         <div class="rule-box">
           <div class="rule-hdr"><span class="rule-lbl">Reguła ${ri+1}</span><button class="xbtn" onclick="delRule(${sec.id},${z.id},${r.id})">×</button></div>
@@ -191,14 +330,18 @@ function renderSections(){
           </div>
           <div><label class="lbl" style="font-size:9px">Uwaga</label><input class="inp" style="font-size:12px" placeholder="np. Po 20 min braku ruchu — powrót do sensora" value="${e(r.note)}" oninput="setRule(${sec.id},${z.id},${r.id},'note',this.value)"></div>
         </div>`).join('');
+
       const cDotsH=COLS.map(cl=>`<div class="cdot${z.colorId===cl.id?' sel':''}" style="background:${cl.dot}" onclick="setZColor(${sec.id},${z.id},'${cl.id}')"></div>`).join('');
       const ctrlH=['button','sensor','both'].map(v=>`<button class="ctrl-btn${z.controlType===v?' active':''}" onclick="setZCtrl(${sec.id},${z.id},'${v}')">${CTRL[v]}</button>`).join('');
+
+      const keyCount=(z.buttonKeys||[]).length;
       return `<div class="zone-wrap" style="border-color:${c.border}">
         <div class="zone-hdr" style="background:${c.bg}" onclick="toggleZone(${z.id})">
           <div class="zone-hdr-l">
             <div class="zdot" style="background:${c.dot}"></div>
             <span class="zname" id="zname-${z.id}" style="color:${c.text}">${e(z.name)||'Strefa'}</span>
             <span class="zpill" style="background:${c.dot}22;color:${c.text}">${CTRL[z.controlType]}</span>
+            ${keyCount?`<span class="zpill" style="background:${c.dot}22;color:${c.text}">K: ${(z.buttonKeys||[]).map(k=>`K${k.panelKey}`).join(', ')}</span>`:''}
           </div>
           <div style="display:flex;gap:6px;align-items:center">
             <button onclick="event.stopPropagation();delZone(${sec.id},${z.id})" class="btn btn-danger btn-sm" style="font-size:11px;padding:3px 9px">usuń</button>
@@ -213,8 +356,11 @@ function renderSections(){
           <div class="field"><label class="lbl">Opis strefy</label><textarea class="inp" rows="2" placeholder="np. Oświetlenie biurek przy oknie" oninput="setZ(${sec.id},${z.id},'description',this.value)">${e(z.description)}</textarea></div>
           <div class="field"><label class="lbl">Typ sterowania</label><div class="ctrl-btns">${ctrlH}</div></div>
           <div class="field">
-            <div class="sub-hdr"><label class="lbl">Przyciski na panelu</label><button class="add-link" onclick="addKey(${sec.id},${z.id})">+ dodaj</button></div>
-            ${keysH||'<p class="empty-msg">Brak przypisanych klawiszy</p>'}
+            <label class="lbl">Przypisane klawisze panelu</label>
+            ${keyCount
+              ? keysH
+              : `<p class="empty-msg">Brak — użyj pickera panelu powyżej aby przypisać klawisze</p>`}
+            ${keysH?`<div class="key-actions-list">${keysH}</div>`:''}
           </div>
           <div class="field" style="margin-bottom:0">
             <div class="sub-hdr"><label class="lbl">Logika działania</label><button class="add-link" onclick="addRule(${sec.id},${z.id})">+ dodaj regułę</button></div>
@@ -229,8 +375,7 @@ function renderSections(){
         <div class="sec-hdr-l">
           <div class="sec-icon">${e(sec.name).charAt(0)}</div>
           <span class="sec-name-txt" id="secname-${sec.id}">${e(sec.name)||'Sekcja'}</span>
-          <span class="sec-count">${totalZones} stref${totalZones===1?'a':totalZones<5?'y':''}
-          </span>
+          <span class="sec-count">${totalZones} stref${totalZones===1?'a':totalZones<5?'y':''}</span>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button onclick="event.stopPropagation();delSection(${sec.id})" class="btn btn-danger btn-sm" style="font-size:11px">usuń sekcję</button>
@@ -243,7 +388,7 @@ function renderSections(){
           <input class="inp" value="${e(sec.name)}" oninput="setSec(${sec.id},'name',this.value);document.getElementById('secname-${sec.id}').textContent=this.value||'Sekcja';document.querySelector('#sec-card-${sec.id} .sec-icon').textContent=this.value.charAt(0)||'?'">
         </div>
         <div class="field">
-          <label class="lbl">Grafika rzutu / schematu sekcji (opcjonalna)</label>
+          <label class="lbl">Grafika rzutu / schematu (opcjonalna)</label>
           <div class="img-drop" style="min-height:90px" onclick="document.getElementById('simg-inp-${sec.id}').click()" ondragover="event.preventDefault()" ondrop="(function(ev){ev.preventDefault();handleSecImgFile(${sec.id},ev.dataTransfer.files[0])})(event)">
             <div class="img-ph" id="simg-ph-${sec.id}" ${sec.image?'style="display:none"':''}>
               <div class="ic">🖼</div><p style="font-size:12px">Kliknij lub przeciągnij rzut / schemat</p>
@@ -253,22 +398,27 @@ function renderSections(){
           <input type="file" id="simg-inp-${sec.id}" accept="image/*" class="hidden" onchange="handleSecImgFile(${sec.id},this.files[0])">
           <button id="simg-rm-${sec.id}" class="btn btn-danger btn-sm ${sec.image?'':'hidden'}" onclick="removeSecImg(${sec.id})" style="margin-top:6px;font-size:11px">Usuń grafikę</button>
         </div>
+
+        <div class="field">
+          <label class="lbl">Przypisanie klawiszy panelu do stref</label>
+          <div id="ppick-${sec.id}"></div>
+        </div>
+
         <div style="margin-bottom:8px">
           <div class="sub-hdr" style="margin-bottom:8px">
             <label class="lbl" style="margin:0">Strefy w sekcji</label>
             <button class="add-link" onclick="addZone(${sec.id})">+ dodaj strefę</button>
           </div>
-          ${zonesHTML||'<p class="empty-msg" style="padding:8px 0">Brak stref — kliknij "+ dodaj strefę"</p>'}
+          ${zonesHTML||'<p class="empty-msg" style="padding:8px 0">Brak stref</p>'}
         </div>
       </div>`;
 
-    // fix sec-icon selector
-    div.id='sec-card-'+sec.id;
     list.appendChild(div);
+    renderPanelPicker(sec.id);
   });
 }
 
-// ── LOGIC PREVIEW ─────────────────────────────────────────────────────────
+// ── LOGIC PREVIEW ──────────────────────────────────────────────────────────
 function renderLogic(){
   const c=document.getElementById('logic-prev');c.innerHTML='';
   sections.forEach(sec=>{
@@ -304,7 +454,7 @@ function renderLogic(){
   });
 }
 
-// ── MINI PREVIEW ───────────────────────────────────────────────────────────
+// ── MINI PREVIEW ────────────────────────────────────────────────────────────
 function renderPreview(){
   const title=document.getElementById('f-title').value;
   const subtitle=document.getElementById('f-subtitle').value;
@@ -313,16 +463,15 @@ function renderPreview(){
   const tagsH=tags.split(',').filter(Boolean).map(t=>`<span class="pv-tag">${e(t.trim())}</span>`).join('');
 
   let sectionsH='';
-  sections.forEach((sec,si)=>{
+  sections.forEach(sec=>{
     const imgH=sec.image?`<div style="text-align:center;margin:8px 0 12px"><img src="${sec.image}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #f3f4f6"></div>`:'';
     const btnH=btnImgB64?`<div style="text-align:center;margin:8px 0 12px"><img src="${btnImgB64}" style="max-height:100px;object-fit:contain;border-radius:6px;border:1px solid #f3f4f6"></div>`:'';
     sectionsH+=`
       <div style="margin-bottom:14px">
-        <div style="font-weight:700;font-size:12px;color:#111827;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <div style="font-weight:700;font-size:12px;color:#111827;margin-bottom:8px">
           <span style="background:#111827;color:#fff;border-radius:5px;padding:1px 7px;font-size:10px">${e(sec.name)}</span>
         </div>
-        ${imgH}
-        ${btnH}
+        ${imgH}${btnH}
       </div>`;
   });
 
@@ -338,57 +487,47 @@ function renderPreview(){
     </div>`;
 }
 
-// ── EXPORT HTML ────────────────────────────────────────────────────────────
+// ── BUILD HTML CONTENT ──────────────────────────────────────────────────────
 function buildHTMLContent(){
   const title=document.getElementById('f-title').value||'Instrukcja';
   const subtitle=document.getElementById('f-subtitle').value;
   const tags=document.getElementById('f-tags').value;
   const note=document.getElementById('f-note').value;
-
   const tagsH=tags.split(',').filter(Boolean)
-    .map(t=>`<span style="font-size:10px;font-family:monospace;background:rgba(255,255,255,.12);color:#6ee7b7;padding:2px 9px;border-radius:4px">${e(t.trim())}</span>`).join('');
+    .map(t=>`<span style="font-size:10px;font-family:monospace;background:#1f2937!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#6ee7b7!important;padding:2px 9px;border-radius:4px;border:1px solid #374151">${e(t.trim())}</span>`).join('');
 
-  function flowChip(txt,bg,color){return`<span style="display:inline-block;font-size:11px;padding:4px 10px;border-radius:6px;background:${bg};color:${color};font-weight:500">${e(txt)}</span>`;}
+  function flowChip(txt,bg,color){return`<span style="display:inline-block;font-size:11px;padding:4px 10px;border-radius:6px;background:${bg}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:${color}!important;font-weight:500">${e(txt)}</span>`;}
   function arrow(){return`<span style="font-size:13px;color:#9ca3af;margin:0 3px">→</span>`;}
 
   let sectionsDetailH='';
   sections.forEach(sec=>{
-    // zona grid usunięty — wyświetlamy tylko logikę stref
-
-    const imgH=sec.image?`<div style="text-align:center;margin:14px 0">
-      <img src="${sec.image}" style="max-height:200px;object-fit:contain;border-radius:10px;border:1px solid #e5e7eb">
-    </div>`:'';
+    const imgH=sec.image?`<div style="text-align:center;margin:14px 0"><img src="${sec.image}" style="max-height:200px;object-fit:contain;border-radius:10px;border:1px solid #e5e7eb"></div>`:'';
+    const btnInSecH=btnImgB64?`<div style="text-align:center;margin:0 0 16px"><img src="${btnImgB64}" style="max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb"></div>`:'';
 
     let zonesLogicH='';
     sec.zones.forEach(z=>{
       const c=COL(z.colorId);
       let inner='';
-      const ACTION_LABELS_E={'short1':'krótkie naciśnięcie','long1':'długie przytrzymanie','long2':'2× długie przytrzymanie','short2':'2× krótkie naciśnięcie'};
-      const ACTION_COLORS={'short1':'#dbeafe','long1':'#e0e7ff','long2':'#ede9fe','short2':'#fce7f3'};
-      const ACTION_TEXT={'short1':'#1e40af','long1':'#3730a3','long2':'#5b21b6','short2':'#9d174d'};
       if(z.buttonKeys&&z.buttonKeys.length){
         z.buttonKeys.forEach(k=>{
           const acts=k.actions||[];
           if(!acts.length)return;
           inner+=`<div style="border:1px solid #f3f4f6;border-radius:8px;overflow:hidden;margin-bottom:10px">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
-              <code style="background:#e5e7eb;padding:2px 8px;border-radius:4px;font-size:11px;color:#374151;font-weight:600">${e(k.label)||'Klawisz'}</code>
-              <span style="font-size:10px;color:#9ca3af">pozycja: ${e(k.pos)}</span>
+              <code style="background:#e5e7eb;padding:2px 8px;border-radius:4px;font-size:11px;color:#374151;font-weight:600">K${k.panelKey||'?'} — ${e(k.label)||'Klawisz'}</code>
             </div>
             <table style="width:100%;border-collapse:collapse;font-size:12px">
               <thead><tr>
-                <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;width:180px">Typ naciśnięcia</th>
+                <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;width:200px">Typ naciśnięcia</th>
                 <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af">Akcja</th>
               </tr></thead><tbody>
               ${acts.map(a=>`<tr>
                 <td style="padding:5px 8px;border-bottom:1px solid #f9fafb">
-                  <span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:4px;background:${ACTION_COLORS[a.type]};color:${ACTION_TEXT[a.type]}">${ACTION_LABELS_E[a.type]||a.type}</span>
+                  <span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:4px;background:${ACTION_COLORS[a.type]}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:${ACTION_TEXT[a.type]}!important">${ACTION_LABELS_E[a.type]||a.type}</span>
                 </td>
                 <td style="padding:5px 8px;border-bottom:1px solid #f9fafb;color:#374151;font-weight:500">${e(a.func)}</td>
               </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>`;
+              </tbody></table></div>`;
         });
       }
       if(z.logicRules.length){
@@ -404,7 +543,7 @@ function buildHTMLContent(){
       }
       if(!inner)return;
       zonesLogicH+=`<div style="border-radius:9px;border:1px solid ${c.border}44;overflow:hidden;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:${c.bg}">
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:${c.bg}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact">
           <div style="width:9px;height:9px;border-radius:50%;background:${c.dot};flex-shrink:0"></div>
           <span style="font-weight:700;font-size:12px;color:${c.text}">${e(z.name)}</span>
           <span style="font-size:11px;color:#6b7280">— ${e(z.description)||'brak opisu'}</span>
@@ -413,318 +552,78 @@ function buildHTMLContent(){
       </div>`;
     });
 
-    const btnInSecH=btnImgB64?`<div style="text-align:center;margin:0 0 16px">
-      <img src="${btnImgB64}" style="max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb">
-    </div>`:'';
-
     sectionsDetailH+=`
       <div style="margin-bottom:24px">
         <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:12px">
-          <span style="background:#111827;color:#fff;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">${e(sec.name)}</span>
+          <span style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff!important;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">${e(sec.name)}</span>
         </div>
-        ${imgH}
-        ${btnInSecH}
+        ${imgH}${btnInSecH}
         ${zonesLogicH?`<div style="margin-top:12px">${zonesLogicH}</div>`:''}
       </div>`;
   });
 
-  const btnImgH='';
-
-  const noteH=note?`<div style="background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:12px;color:#78350f;line-height:1.6;margin-top:8px">
+  const noteH=note?`<div style="background:#fffbeb!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:12px;color:#78350f;line-height:1.6;margin-top:8px">
     <strong style="display:block;margin-bottom:3px">ℹ Uwaga</strong>${e(note)}</div>`:'';
 
-  return {title, subtitle, tagsH, sectionsDetailH, btnImgH, noteH};
+  return {title,subtitle,tagsH,sectionsDetailH,noteH};
 }
 
+// ── EXPORT HTML ─────────────────────────────────────────────────────────────
 function exportHTML(){
-  const {title,subtitle,tagsH,sectionsDetailH,btnImgH,noteH}=buildHTMLContent();
+  const {title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
   const html=`<!DOCTYPE html>
-<html lang="pl"><head><meta charset="UTF-8">
-<title>${e(title)}</title>
-<meta name="description" content="Kreator instrukcji sterowania oświetleniem — Vertex, Node-RED, BMS">
-<meta name="author" content="lech604">
-<meta property="og:title" content="Kreator Instrukcji Oświetlenia">
-<meta property="og:description" content="Twórz profesjonalne instrukcje sterowania oświetleniem i eksportuj do PDF">
+<html lang="pl"><head><meta charset="UTF-8"><title>${e(title)}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;background:#f3f4f6;color:#111827}.page{max-width:800px;margin:0 auto;padding:32px 24px}@media print{body{background:#fff}.page{padding:0}@page{margin:14mm;size:A4}}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:'DM Sans',sans-serif;background:#f3f4f6;color:#111827}.page{max-width:800px;margin:0 auto;padding:32px 24px}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{background:#fff}.page{padding:0}@page{margin:14mm;size:A4}}</style>
 </head><body><div class="page">
-<div style="background:#111827;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
-  <div style="font-size:20px;font-weight:700">${e(title)}</div>
-  ${subtitle?`<div style="font-size:12px;color:#9ca3af;margin-top:4px">${e(subtitle)}</div>`:''}
+<div style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
+  <div style="font-size:20px;font-weight:700;color:#fff!important">${e(title)}</div>
+  ${subtitle?`<div style="font-size:12px;color:#9ca3af!important;margin-top:4px">${e(subtitle)}</div>`:''}
   <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH}</div>
 </div>
-${sectionsDetailH}
-${btnImgH}
-${noteH}
+${sectionsDetailH}${noteH}
 </div></body></html>`;
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='instrukcja.html';a.click();
   closeExport();
 }
 
-// ── EXPORT PDF ─────────────────────────────────────────────────────────────
-async function exportPDF(){
-  const btn=document.getElementById('btn-exp-pdf');
-  const statusEl=document.getElementById('exp-status');
-
-  function setStatus(type,msg){
-    statusEl.className='status-bar status-'+type;
-    statusEl.classList.remove('hidden');
-    statusEl.innerHTML=msg;
-  }
-
-  btn.disabled=true;
-  setStatus('info','<span class="spin">⟳</span> Generuję PDF…');
-
-  try {
-    // Build a hidden render div
-    const {title,subtitle,tagsH,sectionsDetailH,btnImgH,noteH}=buildHTMLContent();
-    const wrap=document.createElement('div');
-    wrap.style.cssText='position:fixed;left:-9999px;top:0;width:794px;background:#fff;font-family:DM Sans,system-ui,sans-serif;color:#111827;padding:32px;';
-    wrap.innerHTML=`
-      <div style="background:#111827;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
-        <div style="font-size:20px;font-weight:700">${e(title)}</div>
-        ${subtitle?`<div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">${e(subtitle)}</div>`:''}
-        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH.replace(/rgba\(255,255,255,\.12\)/g,'#2d3748')}</div>
-      </div>
-      ${sectionsDetailH}
-      ${btnImgH}
-      ${noteH}`;
-    document.body.appendChild(wrap);
-
-    // Wait for images to load
-    await Promise.all([...wrap.querySelectorAll('img')].map(img=>
-      img.complete ? Promise.resolve() :
-      new Promise(res=>{img.onload=res;img.onerror=res;})
-    ));
-    await new Promise(r=>setTimeout(r,300));
-
-    const canvas=await html2canvas(wrap,{
-      scale:2,useCORS:true,allowTaint:true,
-      width:794,backgroundColor:'#fff',
-      logging:false
-    });
-    document.body.removeChild(wrap);
-
-    const {jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pageW=pdf.internal.pageSize.getWidth();
-    const pageH=pdf.internal.pageSize.getHeight();
-    const imgData=canvas.toDataURL('image/jpeg',0.92);
-    const imgW=pageW;
-    const imgH=(canvas.height*pageW)/canvas.width;
-
-    let y=0;
-    while(y<imgH){
-      if(y>0)pdf.addPage();
-      pdf.addImage(imgData,'JPEG',0,y>0?-(y):0,imgW,imgH,undefined,'FAST');
-      y+=pageH;
-    }
-
-    pdf.save('instrukcja.pdf');
-    setStatus('ok','✓ PDF zapisany!');
-    setTimeout(()=>{statusEl.classList.add('hidden');closeExport();},1500);
-  } catch(err){
-    setStatus('err','Błąd: '+err.message);
-    console.error(err);
-  }
-  btn.disabled=false;
-}
-
-
-// ── IMPORT NODE-RED ──────────────────────────────────────────────────────
-function importNodeRed(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const nodes = JSON.parse(ev.target.result);
-      parseNodeRedFlow(nodes);
-      input.value = '';
-    } catch(e) {
-      alert('Błąd parsowania JSON: ' + e.message);
-    }
-  };
-  reader.readAsText(file);
-}
-
-function parseNodeRedFlow(nodes) {
-  // Wyciągnij vertex-profile nodes
-  const profiles = nodes.filter(n => n.type === 'vertex-profile');
-
-  if (profiles.length === 0) {
-    alert('Nie znaleziono węzłów vertex-profile w tym pliku.');
-    return;
-  }
-
-  // Mapowanie cp_schema na czytelne opisy akcji
-  function describeSchema(schema) {
-    if (!schema) return '';
-    try {
-      const arr = JSON.parse(schema);
-      return arr.map(v => {
-        if (v === 'UP') return '▲ ściemnij w górę';
-        if (v === 'DOWN') return '▼ ściemnij w dół';
-        if (v === 'AUTO') return '⚡ AUTO';
-        if (typeof v === 'number') return v + '%';
-        return String(v);
-      }).join(' → ');
-    } catch { return schema; }
-  }
-
-  // Mapowanie controlType
-  function getControlType(p) {
-    const hasMs = p.ms_is_used === true || p.ms_is_used === 'true';
-    const hasCp = p.cp_is_used === true || p.cp_is_used === 'true';
-    if (hasMs && hasCp) return 'both';
-    if (hasMs) return 'sensor';
-    return 'button';
-  }
-
-  // Grupowanie profili w sekcje - jeden profil = jedna strefa
-  // Grupujemy po pierwszym słowie nazwy (np. CORRIDOR_X → CORRIDOR)
-  const sectionMap = {};
-  profiles.forEach(p => {
-    const baseName = p.name.split('_')[0] || p.name;
-    if (!sectionMap[baseName]) sectionMap[baseName] = [];
-    sectionMap[baseName].push(p);
-  });
-
-  // Kolory dla kolejnych stref
-  const colorIds = ['blue', 'purple', 'green', 'amber', 'red', 'gray'];
-
-  // Buduj nowe sekcje
-  const newSections = Object.entries(sectionMap).map(([secName, profs], si) => {
-    const zones = profs.map((p, zi) => {
-      const ctrl = getControlType(p);
-      const schemaDesc = describeSchema(p.cp_schema);
-
-      // Buduj reguły logiki z parametrów sensora
-      const rules = [];
-      const hasMs = p.ms_is_used === true || p.ms_is_used === 'true';
-      const hasLs = p.ls_is_used === true || p.ls_is_used === 'true';
-
-      if (hasMs) {
-        rules.push({
-          id: Date.now() + zi * 100 + 1,
-          trigger: 'Wykrycie ruchu',
-          action: `Włącz ${p.ms_level_on}%`,
-          note: `Hold: ${p.ms_time_hold}s`
-        });
-        rules.push({
-          id: Date.now() + zi * 100 + 2,
-          trigger: `Brak ruchu przez ${p.ms_time_hold}s`,
-          action: `Standby ${p.ms_level_standby}%`,
-          note: `Standby: ${p.ms_time_standby}s`
-        });
-        rules.push({
-          id: Date.now() + zi * 100 + 3,
-          trigger: `Brak ruchu przez ${parseInt(p.ms_time_hold)+parseInt(p.ms_time_standby)}s`,
-          action: `Wyłącz (${p.ms_level_off}%)`,
-          note: `Dead: ${p.ms_time_dead}s`
-        });
-      }
-
-      if (hasLs) {
-        rules.push({
-          id: Date.now() + zi * 100 + 4,
-          trigger: 'Czujnik światła aktywny',
-          action: `Utrzymuj ${p.ls_target} lux (±${p.ls_tolerance})`,
-          note: `Zakres: ${p.ls_limit_min}–${p.ls_limit_max}%`
-        });
-      }
-
-      // Klucze z cp_schema
-      const buttonKeys = [];
-      if (p.cp_is_used === true || p.cp_is_used === 'true') {
-        try {
-          const schema = JSON.parse(p.cp_schema);
-          schema.forEach((val, idx) => {
-            if (typeof val === 'number') {
-              buttonKeys.push({
-                id: Date.now() + zi * 1000 + idx,
-                label: `Scena ${val}%`,
-                pos: idx % 2 === 0 ? 'left' : 'right',
-                actions: [{
-                  id: Date.now() + zi * 1000 + idx + 500,
-                  type: 'short1',
-                  func: `Ustaw jasność ${val}%`
-                }]
-              });
-            } else if (val === 'UP') {
-              buttonKeys.push({
-                id: Date.now() + zi * 1000 + idx,
-                label: 'Ściemnij +',
-                pos: 'left',
-                actions: [{
-                  id: Date.now() + zi * 1000 + idx + 500,
-                  type: 'long1',
-                  func: 'Ściemnij w górę (HOLDUP)'
-                }]
-              });
-            } else if (val === 'DOWN') {
-              buttonKeys.push({
-                id: Date.now() + zi * 1000 + idx,
-                label: 'Ściemnij -',
-                pos: 'right',
-                actions: [{
-                  id: Date.now() + zi * 1000 + idx + 500,
-                  type: 'long2',
-                  func: 'Ściemnij w dół (HOLDDOWN)'
-                }]
-              });
-            }
-          });
-        } catch(e) {}
-      }
-
-      // Podstrefy jako opis
-      const subzonesDesc = p.zones && p.zones.length > 0
-        ? p.zones.map(z => `${z.name} (offset: ${z.zone_percentage_offset}%)`).join(', ')
-        : '';
-
-      return {
-        id: Date.now() + si * 10000 + zi,
-        name: p.name,
-        description: [
-          ctrl === 'sensor' ? 'Tylko czujnik ruchu' :
-          ctrl === 'both' ? 'Przycisk + czujnik ruchu' : 'Tylko przycisk',
-          schemaDesc ? `Schemat: ${schemaDesc}` : '',
-          subzonesDesc ? `Podstrefy: ${subzonesDesc}` : ''
-        ].filter(Boolean).join(' | '),
-        colorId: colorIds[zi % colorIds.length],
-        controlType: ctrl,
-        buttonKeys,
-        logicRules: rules
-      };
-    });
-
-    return {
-      id: Date.now() + si * 100000,
-      name: secName,
-      image: null,
-      zones
-    };
-  });
-
-  // Potwierdź import
-  const totalZones = newSections.reduce((a, s) => a + s.zones.length, 0);
-  const msg = `Znaleziono ${profiles.length} profili Vertex w ${newSections.length} sekcjach (${totalZones} stref).\n\nCzy zastąpić obecną konfigurację?`;
-
-  if (confirm(msg)) {
-    sections = newSections;
-    secCnt = newSections.length + 10;
-    zoneCnt = totalZones + 10;
-    renderSections();
-    goTo(2);
-    alert(`✓ Zaimportowano ${totalZones} stref z Node-RED!`);
-  }
+// ── EXPORT PDF ──────────────────────────────────────────────────────────────
+function exportPDF(){
+  const {title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
+  const win=window.open('','_blank','width=900,height=700');
+  if(!win){alert('Przeglądarka zablokowała popup. Zezwól na popupy i spróbuj ponownie.');return;}
+  win.document.write(`<!DOCTYPE html>
+<html lang="pl"><head><meta charset="UTF-8"><title>${e(title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}body{font-family:'DM Sans',system-ui,sans-serif;background:#fff;color:#111827}.page{max-width:800px;margin:0 auto;padding:28px 24px}.no-print{display:block}@media print{.no-print{display:none!important}.page{padding:0;max-width:100%}@page{margin:12mm 10mm;size:A4}}</style>
+</head><body>
+<div class="no-print" style="background:#111827;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;border-radius:8px;max-width:800px;margin:0 auto 20px">
+  <span style="font-size:13px">Kliknij "Drukuj" i wybierz "Zapisz jako PDF" — zaznacz opcję <strong>Grafika w tle</strong></span>
+  <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🖨 Drukuj / PDF</button>
+</div>
+<div class="page">
+<div style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
+  <div style="font-size:20px;font-weight:700;color:#fff!important">${e(title)}</div>
+  ${subtitle?`<div style="font-size:12px;color:#9ca3af!important;margin-top:4px">${e(subtitle)}</div>`:''}
+  <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH}</div>
+</div>
+${sectionsDetailH}${noteH}
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},800);};<\/script>
+</body></html>`);
+  win.document.close();
+  closeExport();
 }
 
 function openExport(){document.getElementById('export-modal').classList.remove('hidden');}
 function closeExport(){document.getElementById('export-modal').classList.add('hidden');}
 
-// ── INIT ───────────────────────────────────────────────────────────────────
+// ── PAGE 1 INIT ──────────────────────────────────────────────────────────────
+function initPage1(){
+  renderPanelTypeSelector();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
 renderSteps();
 renderSections();
