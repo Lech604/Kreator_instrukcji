@@ -242,47 +242,18 @@ function updatePreview() {
    EKSPORT DO PDF
 ========================================== */
 document.getElementById("exportPDF").addEventListener("click", () => {
-    const element = document.getElementById("output");
-
-    const opt = {
-        margin:       [15, 15, 15, 15],
-        filename:     'instrukcja.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  {
-            scale: 2,
-            useCORS: false,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            scrollX: 0,
-            scrollY: 0
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-    };
-
-    html2pdf().set(opt).from(element).toPdf().get('pdf').then(pdf => {
-        const totalPages = pdf.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            pdf.setPage(i);
-            pdf.setFontSize(10);
-            pdf.setTextColor(150);
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            pdf.text(`${i} / ${totalPages}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
-        }
-    }).save();
+    window.print();
 });
 
 /* ==========================================
-   EKSPORT DO DOCX (własny generator, JSZip)
+   EKSPORT DO DOCX (JSZip + XML)
 ========================================== */
 document.getElementById("exportDOCX").addEventListener("click", async function() {
     const btn = document.getElementById("exportDOCX");
     btn.disabled = true;
-    btn.textContent = "⏳ Generuję DOCX...";
-
+    btn.textContent = "⏳ Generuję...";
     try {
-        if (typeof JSZip === 'undefined') throw new Error("Biblioteka JSZip nie załadowała się. Sprawdź internet i odśwież stronę.");
+        if (typeof JSZip === 'undefined') throw new Error("JSZip nie załadowany. Odśwież stronę.");
 
         const title  = document.getElementById("title").value || "Instrukcja";
         const desc   = document.getElementById("description").value;
@@ -290,88 +261,80 @@ document.getElementById("exportDOCX").addEventListener("click", async function()
         const prefix = document.getElementById("photoPrefix").value;
         const steps  = document.getElementById("stepsContainer").querySelectorAll(".stepItem");
 
-        // Helper: escape XML
-        function ex(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-        // DOCX relationship IDs
-        const imageRels = [];
-        let rIdCounter = 1;
-
-        // Collect images as base64 blobs
-        const imageFiles = []; // {rId, ext, data}
-
-        // Build document XML body paragraphs
-        let bodyXml = '';
-
-        // Title paragraph
-        bodyXml += `<w:p>
-          <w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="left"/></w:pPr>
-          <w:r><w:rPr><w:b/><w:color w:val="2A4D8F"/><w:sz w:val="44"/></w:rPr>
-          <w:t>${ex(title)}</w:t></w:r></w:p>`;
-
-        // Description
-        if (desc.trim()) {
-            desc.split('\n').forEach(line => {
-                bodyXml += `<w:p><w:r><w:rPr><w:color w:val="444444"/><w:sz w:val="22"/></w:rPr>
-                <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
-            });
-            bodyXml += `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
+        function ex(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+        function para(text, opts){
+            opts = opts||{};
+            const sz = opts.sz||22;
+            const bold = opts.bold?'<w:b/>':'';
+            const color = opts.color?`<w:color w:val="${opts.color}"/>`:'';
+            const indent = opts.indent?`<w:ind w:left="${opts.indent}"/>`:'';
+            const before = opts.before||0;
+            const after  = opts.after||80;
+            return `<w:p><w:pPr><w:spacing w:before="${before}" w:after="${after}"/>${indent}</w:pPr>
+              <w:r><w:rPr>${bold}${color}<w:sz w:val="${sz}"/></w:rPr>
+              <w:t xml:space="preserve">${ex(text)}</w:t></w:r></w:p>`;
         }
 
-        let photoCounter = 0;
-        let stepNum = 0;
+        let bodyXml = '';
+        const imageFiles = [];
+        let rIdNum = 10;
 
+        // Tytuł
+        bodyXml += `<w:p><w:pPr><w:spacing w:before="0" w:after="200"/>
+          <w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="2A4D8F"/></w:pBdr></w:pPr>
+          <w:r><w:rPr><w:b/><w:color w:val="2A4D8F"/><w:sz w:val="48"/></w:rPr>
+          <w:t>${ex(title)}</w:t></w:r></w:p>`;
+
+        // Opis
+        if (desc.trim()) {
+            desc.split('\n').forEach(line => {
+                bodyXml += para(line, {color:'444444', after:60});
+            });
+            bodyXml += para('', {after:120});
+        }
+
+        let stepNum = 0;
+        let photoCounter = 0;
         for (const step of steps) {
             stepNum++;
-            const stepTitle = step.querySelector(".stepInput").value || ("Krok " + stepNum);
+            const stepTitle = step.querySelector(".stepInput").value || ("Krok "+stepNum);
             const stepLong  = step.querySelector(".stepLongText").value;
 
-            // Step number + title
-            bodyXml += `<w:p>
-              <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
-              <w:r><w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="111827"/></w:rPr>
-              <w:t xml:space="preserve">${stepNum}.   ${ex(stepTitle)}</w:t></w:r></w:p>`;
+            bodyXml += para(stepNum+'.   '+stepTitle, {bold:true, sz:28, color:'111827', before:240, after:80});
 
             if (stepLong.trim()) {
                 stepLong.split('\n').forEach(line => {
-                    bodyXml += `<w:p><w:pPr><w:ind w:left="360"/></w:pPr>
-                    <w:r><w:rPr><w:color w:val="444444"/><w:sz w:val="22"/></w:rPr>
-                    <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
+                    bodyXml += para(line, {color:'444444', sz:22, indent:360, after:60});
                 });
             }
 
-            // Images
             const imgBlocks = step.querySelectorAll(".imageBlock");
             for (const block of imgBlocks) {
                 const img     = block.querySelector("img");
                 const caption = block.querySelector(".imageCaption").value;
                 const after   = block.querySelector(".afterImageText").value;
-                if (!img.src || img.style.display === "none") continue;
-
+                if (!img.src || img.style.display==="none") continue;
                 photoCounter++;
 
-                // Image size
-                const sizePercent = parseInt(img.style.width) || 100;
-                const maxEmu = 5943600; // ~16.5cm in EMU
-                const cx = Math.round(maxEmu * sizePercent / 100);
+                const sizePercent = parseInt(img.style.width)||100;
+                const cx = Math.round(5486400 * sizePercent / 100);
                 const cy = Math.round(cx * 0.65);
-
-                // Store image
                 const b64 = img.src.split(',')[1];
-                const ext = img.src.startsWith('data:image/png') ? 'png' : 'jpeg';
-                const rId = 'rId' + (rIdCounter++);
-                imageFiles.push({rId, ext, data: b64});
+                const ext = img.src.startsWith('data:image/png')?'png':'jpeg';
+                const rId = 'rId'+rIdNum;
+                rIdNum++;
+                imageFiles.push({rId, ext, data:b64, idx:photoCounter});
 
-                bodyXml += `<w:p><w:pPr><w:spacing w:before="100" w:after="60"/><w:jc w:val="left"/></w:pPr>
-                  <w:r><w:rPr></w:rPr><w:drawing>
+                bodyXml += `<w:p><w:pPr><w:spacing w:before="100" w:after="60"/></w:pPr>
+                  <w:r><w:drawing>
                     <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
                       <wp:extent cx="${cx}" cy="${cy}"/>
-                      <wp:docPr id="${rIdCounter}" name="Image${photoCounter}"/>
+                      <wp:docPr id="${rIdNum}" name="img${photoCounter}"/>
                       <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
                         <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
                           <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
                             <pic:nvPicPr>
-                              <pic:cNvPr id="${rIdCounter}" name="Image${photoCounter}"/>
+                              <pic:cNvPr id="${rIdNum}" name="img${photoCounter}"/>
                               <pic:cNvPicPr/>
                             </pic:nvPicPr>
                             <pic:blipFill>
@@ -388,103 +351,79 @@ document.getElementById("exportDOCX").addEventListener("click", async function()
                     </wp:inline>
                   </w:drawing></w:r></w:p>`;
 
-                // Caption
                 const fotLabel = prefix
-                    ? (caption ? (prefix + " " + photoCounter + ": " + caption) : (prefix + " " + photoCounter))
+                    ? (caption?(prefix+' '+photoCounter+': '+caption):(prefix+' '+photoCounter))
                     : caption;
-                if (fotLabel) {
-                    bodyXml += `<w:p><w:r><w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="18"/></w:rPr>
-                    <w:t>${ex(fotLabel)}</w:t></w:r></w:p>`;
-                }
-
-                if (after.trim()) {
-                    after.split('\n').forEach(line => {
-                        bodyXml += `<w:p><w:r><w:rPr><w:color w:val="333333"/><w:sz w:val="22"/></w:rPr>
-                        <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
-                    });
-                }
+                if (fotLabel) bodyXml += para(fotLabel, {sz:18, color:'666666', after:60});
+                if (after.trim()) after.split('\n').forEach(l => { bodyXml += para(l, {sz:22, color:'333333', after:60}); });
             }
         }
 
-        // Ending
         if (ending.trim()) {
-            bodyXml += `<w:p><w:pPr><w:spacing w:before="400"/><w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="2A4D8F"/></w:pBdr></w:pPr>
+            bodyXml += `<w:p><w:pPr><w:spacing w:before="400" w:after="0"/>
+              <w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="2A4D8F"/></w:pBdr></w:pPr>
               <w:r><w:rPr><w:b/><w:color w:val="2A4D8F"/><w:sz w:val="26"/></w:rPr>
               <w:t>${ex(ending)}</w:t></w:r></w:p>`;
         }
 
-        // ── Build DOCX ZIP ──
+        // Build ZIP
         const zip = new JSZip();
 
-        // [Content_Types].xml
-        const imgContentTypes = imageFiles.map(f =>
-            `<Override PartName="/word/media/img${f.rId}.${f.ext}" ContentType="image/${f.ext === 'jpeg' ? 'jpeg' : 'png'}"/>`
-        ).join('');
-        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        const imgCT = imageFiles.map(f=>`<Override PartName="/word/media/img${f.idx}.${f.ext}" ContentType="image/${f.ext==='jpeg'?'jpeg':'png'}"/>`).join('');
+        zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-  ${imgContentTypes}
+  ${imgCT}
 </Types>`);
 
-        // _rels/.rels
-        zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        zip.folder('_rels').file('.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`);
 
-        // word/_rels/document.xml.rels
-        const imgRels = imageFiles.map(f =>
-            `<Relationship Id="${f.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/img${f.rId}.${f.ext}"/>`
-        ).join('');
-        zip.folder('word').folder('_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        const imgRels = imageFiles.map(f=>`<Relationship Id="${f.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/img${f.idx}.${f.ext}"/>`).join('');
+        zip.folder('word').folder('_rels').file('document.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId_styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
   ${imgRels}
 </Relationships>`);
 
-        // word/styles.xml (minimal)
-        zip.folder('word').file('styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        zip.folder('word').file('styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/>
-    <w:rPr><w:sz w:val="22"/></w:rPr></w:style>
-  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>
-    <w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/>
+    <w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>
 </w:styles>`);
 
-        // word/document.xml
-        zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        zip.folder('word').file('document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
   xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
   xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
   xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
   xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-  <w:body>${bodyXml}<w:sectPr>
+  <w:body>${bodyXml}
+  <w:sectPr>
     <w:pgSz w:w="11906" w:h="16838"/>
     <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>
-  </w:sectPr></w:body>
-</w:document>`);
+  </w:sectPr></w:body></w:document>`);
 
-        // Add images to zip
-        const wordFolder = zip.folder('word');
-        const mediaFolder = wordFolder.folder('media');
+        const media = zip.folder('word').folder('media');
         for (const f of imageFiles) {
-            mediaFolder.file(`img${f.rId}.${f.ext}`, f.data, {base64: true});
+            media.file(`img${f.idx}.${f.ext}`, f.data, {base64:true});
         }
 
-        // Generate and download
-        const blob = await zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+        const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = 'instrukcja.docx';
         a.click();
 
     } catch(err) {
-        alert("Błąd generowania DOCX: " + err.message);
+        alert("Błąd: " + err.message);
         console.error(err);
     }
     btn.disabled = false;
-    btn.textContent = "📄 Eksportuj do DOCX (Word)";
+    btn.textContent = "📄 Eksportuj do DOCX";
 });
