@@ -272,3 +272,144 @@ document.getElementById("exportPDF").addEventListener("click", () => {
         }
     }).save();
 });
+
+/* ==========================================
+   EKSPORT DO DOCX
+========================================== */
+document.getElementById("exportDOCX").addEventListener("click", async () => {
+    const btn = document.getElementById("exportDOCX");
+    btn.disabled = true;
+    btn.textContent = "⏳ Generuję DOCX...";
+
+    try {
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel,
+                ImageRun, AlignmentType, BorderStyle, ShadingType,
+                NumberingFormat } = window.docx;
+
+        const title     = document.getElementById("title").value || "Instrukcja";
+        const desc      = document.getElementById("description").value;
+        const ending    = document.getElementById("ending").value;
+        const prefix    = document.getElementById("photoPrefix").value;
+        const steps     = document.getElementById("stepsContainer").querySelectorAll(".stepItem");
+
+        const children = [];
+
+        // ── Tytuł ──
+        children.push(new Paragraph({
+            children: [new TextRun({ text: title, bold: true, size: 44, font: "Segoe UI", color: "2A4D8F" })],
+            spacing: { after: 200 },
+            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2A4D8F" } },
+        }));
+
+        // ── Opis ──
+        if (desc.trim()) {
+            children.push(new Paragraph({
+                children: [new TextRun({ text: desc, size: 24, font: "Segoe UI", color: "444444" })],
+                spacing: { after: 300 },
+            }));
+        }
+
+        // ── Kroki ──
+        let photoCounter = 0;
+        let stepNum = 0;
+        for (const step of steps) {
+            stepNum++;
+            const stepTitle = step.querySelector(".stepInput").value || `Krok ${stepNum}`;
+            const stepLong  = step.querySelector(".stepLongText").value;
+
+            // Numer + tytuł kroku
+            children.push(new Paragraph({
+                children: [
+                    new TextRun({ text: `${stepNum}.  `, bold: true, size: 28, font: "Segoe UI", color: "111827" }),
+                    new TextRun({ text: stepTitle, bold: true, size: 28, font: "Segoe UI", color: "111827" }),
+                ],
+                spacing: { before: 280, after: 80 },
+            }));
+
+            // Dodatkowy opis
+            if (stepLong.trim()) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: stepLong, size: 22, font: "Segoe UI", color: "444444" })],
+                    spacing: { after: 120 },
+                }));
+            }
+
+            // Zdjęcia
+            const imgBlocks = step.querySelectorAll(".imageBlock");
+            for (const block of imgBlocks) {
+                const img     = block.querySelector("img");
+                const caption = block.querySelector(".imageCaption").value;
+                const after   = block.querySelector(".afterImageText").value;
+
+                if (!img.src || img.style.display === "none") continue;
+                photoCounter++;
+
+                try {
+                    // Convert base64 to Uint8Array
+                    const b64 = img.src.split(",")[1];
+                    const byteStr = atob(b64);
+                    const arr = new Uint8Array(byteStr.length);
+                    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+
+                    // Size from img.style.width percentage
+                    const sizePercent = parseInt(img.style.width) || 100;
+                    const maxW = 580; // points approx full width
+                    const w = Math.round(maxW * sizePercent / 100);
+                    const h = Math.round(w * 0.65); // estimate aspect ratio
+
+                    children.push(new Paragraph({
+                        children: [new ImageRun({ data: arr, transformation: { width: w, height: h }, type: "png" })],
+                        spacing: { before: 100, after: 60 },
+                    }));
+                } catch(imgErr) { console.warn("Image error:", imgErr); }
+
+                // Podpis
+                const fotLabel = prefix
+                    ? (caption ? `${prefix} ${photoCounter}: ${caption}` : `${prefix} ${photoCounter}`)
+                    : caption;
+                if (fotLabel) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: fotLabel, size: 18, italics: true, color: "666666", font: "Segoe UI" })],
+                        spacing: { after: 60 },
+                    }));
+                }
+
+                // Tekst po zdjęciu
+                if (after.trim()) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: after, size: 22, font: "Segoe UI", color: "333333" })],
+                        spacing: { after: 100 },
+                    }));
+                }
+            }
+        }
+
+        // ── Zakończenie ──
+        if (ending.trim()) {
+            children.push(new Paragraph({
+                children: [new TextRun({ text: ending, bold: true, size: 26, font: "Segoe UI", color: "2A4D8F" })],
+                spacing: { before: 400, after: 200 },
+                border: { top: { style: BorderStyle.SINGLE, size: 4, color: "2A4D8F" } },
+            }));
+        }
+
+        const doc = new Document({
+            creator: "Kreator Instrukcji – Uniwersalny",
+            title,
+            sections: [{ properties: {}, children }],
+        });
+
+        const blob = await Packer.toBlob(doc);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "instrukcja.docx";
+        a.click();
+
+    } catch(err) {
+        alert("Błąd generowania DOCX: " + err.message);
+        console.error(err);
+    }
+
+    btn.disabled = false;
+    btn.textContent = "📄 Eksportuj do DOCX (Word)";
+});
