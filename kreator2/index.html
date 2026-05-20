@@ -121,14 +121,16 @@
       ✓ Alternatywnie: HTML do wydruku (Ctrl+P)
     </div>
     <div style="display:flex;flex-direction:column;gap:8px">
-      <button class="btn btn-green btn-full" onclick="exportPDF()">🖨 Otwórz podgląd wydruku (PDF)</button>
-      <button class="btn btn-outline btn-full" onclick="exportHTML()" style="font-size:12px">⬇ Pobierz HTML</button>
+      <button class="btn btn-green btn-full" id="btn-exp-docx" onclick="exportDOCX()">📄 Pobierz DOCX (Word — edytowalny tekst)</button>
+      <button class="btn btn-blue btn-full" onclick="exportPDF()">🖨 Otwórz podgląd wydruku (PDF)</button>
+      <button class="btn btn-outline btn-full" onclick="exportHTML()" style="font-size:12px">⬇ Pobierz HTML (kopiowalny tekst)</button>
     </div>
-    <p style="font-size:11px;color:#9ca3af;margin-top:8px;text-align:center">Otworzy się nowe okno → kliknij "Drukuj" → wybierz "Zapisz jako PDF"</p>
+    <p style="font-size:11px;color:#9ca3af;margin-top:8px;text-align:center">DOCX i HTML zachowują tekst jako tekst — możesz kopiować i edytować</p>
   </div>
 </div>
 
 <!-- PDF libs -->
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <script src="app.js"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){renderPanelTypeSelector();});</script>
 </body>

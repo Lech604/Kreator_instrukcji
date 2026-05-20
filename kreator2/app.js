@@ -616,6 +616,201 @@ ${sectionsDetailH}${noteH}
   closeExport();
 }
 
+// ── EXPORT DOCX ─────────────────────────────────────────────────────────────
+async function exportDOCX(){
+  const btn=document.getElementById('btn-exp-docx');
+  btn.disabled=true;
+  btn.textContent='⏳ Generuję...';
+
+  try {
+    const {Document,Packer,Paragraph,TextRun,HeadingLevel,ImageRun,
+           AlignmentType,BorderStyle,Table,TableRow,TableCell,WidthType,
+           ShadingType,Header,Footer,PageNumber}=window.docx;
+
+    const title=document.getElementById('f-title').value||'Instrukcja';
+    const subtitle=document.getElementById('f-subtitle').value;
+    const tags=document.getElementById('f-tags').value;
+    const note=document.getElementById('f-note').value;
+
+    const children=[];
+
+    // ── Title ──
+    children.push(new Paragraph({
+      children:[new TextRun({text:title,bold:true,size:40,color:'FFFFFF',font:'DM Sans'})],
+      heading:HeadingLevel.TITLE,
+      shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
+      spacing:{before:0,after:200},
+    }));
+    if(subtitle){
+      children.push(new Paragraph({
+        children:[new TextRun({text:subtitle,size:22,color:'9CA3AF',font:'DM Sans'})],
+        shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
+        spacing:{before:0,after:100},
+      }));
+    }
+    if(tags){
+      children.push(new Paragraph({
+        children:[new TextRun({text:'Tagi: '+tags,size:18,color:'6EE7B7',font:'Courier New'})],
+        shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
+        spacing:{before:0,after:400},
+      }));
+    }
+
+    // ── Button image ──
+    if(btnImgB64){
+      children.push(new Paragraph({
+        children:[new TextRun({text:'Przycisk ścienny',bold:true,size:24,color:'111827'})],
+        spacing:{before:200,after:100},
+      }));
+      try {
+        const imgData=btnImgB64.split(',')[1];
+        const byteStr=atob(imgData);
+        const arr=new Uint8Array(byteStr.length);
+        for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
+        children.push(new Paragraph({
+          children:[new ImageRun({data:arr,transformation:{width:200,height:150},type:'png'})],
+          spacing:{before:100,after:300},
+        }));
+      } catch(imgErr){console.warn('Button image error:',imgErr);}
+    }
+
+    // ── Sections ──
+    for(const sec of sections){
+      // Section heading
+      children.push(new Paragraph({
+        children:[new TextRun({text:sec.name,bold:true,size:28,color:'FFFFFF',font:'DM Sans'})],
+        shading:{type:ShadingType.SOLID,color:'1F2937',fill:'1F2937'},
+        spacing:{before:300,after:100},
+      }));
+
+      // Section image
+      if(sec.image){
+        try {
+          const imgData=sec.image.split(',')[1];
+          const byteStr=atob(imgData);
+          const arr=new Uint8Array(byteStr.length);
+          for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
+          children.push(new Paragraph({
+            children:[new ImageRun({data:arr,transformation:{width:400,height:250},type:'png'})],
+            alignment:AlignmentType.CENTER,
+            spacing:{before:100,after:200},
+          }));
+        } catch(imgErr){console.warn('Section image error:',imgErr);}
+      }
+
+      // ── Zones ──
+      for(const z of sec.zones){
+        const c=COL(z.colorId);
+        const hexColor=c.text.replace('#','');
+        const hexBg=c.bg.replace('#','');
+
+        // Zone name row
+        children.push(new Paragraph({
+          children:[
+            new TextRun({text:'● ',bold:true,size:22,color:c.dot.replace('#','')}),
+            new TextRun({text:z.name,bold:true,size:22,color:hexColor}),
+            z.description?new TextRun({text:'  —  '+z.description,size:20,color:'6B7280'}):new TextRun({text:''}),
+          ],
+          shading:{type:ShadingType.SOLID,color:hexBg.toUpperCase(),fill:hexBg.toUpperCase()},
+          spacing:{before:200,after:80},
+          border:{bottom:{style:BorderStyle.SINGLE,size:1,color:'E5E7EB'}},
+        }));
+
+        // Button keys table
+        if(z.buttonKeys&&z.buttonKeys.length){
+          // Header row
+          const headerRow=new TableRow({children:[
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'KLAWISZ',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:15,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'TYP NACIŚNIĘCIA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:30,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'AKCJA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:55,type:WidthType.PERCENTAGE}}),
+          ]});
+
+          const dataRows=[];
+          z.buttonKeys.forEach(k=>{
+            (k.actions||[]).forEach((a,ai)=>{
+              const labelMap={short1:'Krótkie naciśnięcie',long1:'Długie przytrzymanie',long2:'2× długie przytrzymanie',short2:'2× krótkie naciśnięcie'};
+              dataRows.push(new TableRow({children:[
+                new TableCell({children:[new Paragraph({children:[new TextRun({text:ai===0?('K'+(k.panelKey||'?')+' — '+(k.label||'')):'',size:18,bold:ai===0})]})]
+                  ,width:{size:15,type:WidthType.PERCENTAGE}}),
+                new TableCell({children:[new Paragraph({children:[new TextRun({text:labelMap[a.type]||a.type,size:18,color:'374151'})]})]
+                  ,width:{size:30,type:WidthType.PERCENTAGE}}),
+                new TableCell({children:[new Paragraph({children:[new TextRun({text:a.func||'',size:18,color:'111827',bold:true})]})]
+                  ,width:{size:55,type:WidthType.PERCENTAGE}}),
+              ]}));
+            });
+          });
+
+          if(dataRows.length){
+            children.push(new Table({rows:[headerRow,...dataRows],width:{size:100,type:WidthType.PERCENTAGE}}));
+            children.push(new Paragraph({spacing:{before:100,after:0}}));
+          }
+        }
+
+        // Logic rules
+        if(z.logicRules&&z.logicRules.length){
+          children.push(new Paragraph({
+            children:[new TextRun({text:'Logika działania:',bold:true,size:20,color:'374151'})],
+            spacing:{before:160,after:60},
+          }));
+          z.logicRules.forEach((r,i)=>{
+            const parts=[];
+            if(r.trigger) parts.push(r.trigger);
+            if(r.action)  parts.push('→ '+r.action);
+            if(r.note)    parts.push('('+r.note+')');
+            children.push(new Paragraph({
+              children:[
+                new TextRun({text:`${i+1}.  `,size:18,color:'9CA3AF',font:'Courier New'}),
+                new TextRun({text:parts.join('   '),size:18,color:'374151'}),
+              ],
+              spacing:{before:40,after:40},
+            }));
+          });
+        }
+
+        children.push(new Paragraph({spacing:{before:120,after:0}}));
+      }
+    }
+
+    // ── Note ──
+    if(note){
+      children.push(new Paragraph({
+        children:[new TextRun({text:'ℹ Uwaga',bold:true,size:20,color:'78350F'})],
+        shading:{type:ShadingType.SOLID,color:'FFFBEB',fill:'FFFBEB'},
+        border:{all:{style:BorderStyle.SINGLE,size:4,color:'F59E0B'}},
+        spacing:{before:300,after:80},
+      }));
+      children.push(new Paragraph({
+        children:[new TextRun({text:note,size:18,color:'78350F'})],
+        shading:{type:ShadingType.SOLID,color:'FFFBEB',fill:'FFFBEB'},
+        spacing:{before:0,after:200},
+      }));
+    }
+
+    const doc=new Document({
+      creator:'Kreator Instrukcji — Vertex',
+      title,
+      description:subtitle,
+      sections:[{
+        properties:{},
+        children,
+      }],
+    });
+
+    const blob=await Packer.toBlob(doc);
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='instrukcja.docx';
+    a.click();
+    closeExport();
+
+  } catch(err){
+    alert('Błąd generowania DOCX: '+err.message);
+    console.error(err);
+  }
+  btn.disabled=false;
+  btn.textContent='📄 Pobierz DOCX (Word)';
+}
+
 function openExport(){document.getElementById('export-modal').classList.remove('hidden');}
 function closeExport(){document.getElementById('export-modal').classList.add('hidden');}
 
