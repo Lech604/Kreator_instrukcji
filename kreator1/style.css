@@ -246,22 +246,11 @@
   line-height: 1.4;
 }
 
-/* DOCX button */
 #exportDOCX {
-  margin-top: 10px;
-  padding: 12px 18px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
-  width: 100%;
+  margin-top: 10px; padding: 12px 18px;
+  background: #2563eb; color: white;
+  border: none; border-radius: 8px;
+  cursor: pointer; font-size: 15px; width: 100%;
 }
-#exportDOCX:hover {
-  background: #1d4ed8;
-}
-#exportDOCX:disabled {
-  background: #93c5fd;
-  cursor: not-allowed;
-}
+#exportDOCX:hover { background: #1d4ed8; }
+#exportDOCX:disabled { background: #93c5fd; cursor: not-allowed; }

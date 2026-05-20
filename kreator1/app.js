@@ -274,142 +274,217 @@ document.getElementById("exportPDF").addEventListener("click", () => {
 });
 
 /* ==========================================
-   EKSPORT DO DOCX
+   EKSPORT DO DOCX (własny generator, JSZip)
 ========================================== */
-document.getElementById("exportDOCX").addEventListener("click", async () => {
+document.getElementById("exportDOCX").addEventListener("click", async function() {
     const btn = document.getElementById("exportDOCX");
     btn.disabled = true;
     btn.textContent = "⏳ Generuję DOCX...";
 
     try {
-        const { Document, Packer, Paragraph, TextRun, HeadingLevel,
-                ImageRun, AlignmentType, BorderStyle, ShadingType,
-                NumberingFormat } = window.docx;
+        if (typeof JSZip === 'undefined') throw new Error("Biblioteka JSZip nie załadowała się. Sprawdź internet i odśwież stronę.");
 
-        const title     = document.getElementById("title").value || "Instrukcja";
-        const desc      = document.getElementById("description").value;
-        const ending    = document.getElementById("ending").value;
-        const prefix    = document.getElementById("photoPrefix").value;
-        const steps     = document.getElementById("stepsContainer").querySelectorAll(".stepItem");
+        const title  = document.getElementById("title").value || "Instrukcja";
+        const desc   = document.getElementById("description").value;
+        const ending = document.getElementById("ending").value;
+        const prefix = document.getElementById("photoPrefix").value;
+        const steps  = document.getElementById("stepsContainer").querySelectorAll(".stepItem");
 
-        const children = [];
+        // Helper: escape XML
+        function ex(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-        // ── Tytuł ──
-        children.push(new Paragraph({
-            children: [new TextRun({ text: title, bold: true, size: 44, font: "Segoe UI", color: "2A4D8F" })],
-            spacing: { after: 200 },
-            border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2A4D8F" } },
-        }));
+        // DOCX relationship IDs
+        const imageRels = [];
+        let rIdCounter = 1;
 
-        // ── Opis ──
+        // Collect images as base64 blobs
+        const imageFiles = []; // {rId, ext, data}
+
+        // Build document XML body paragraphs
+        let bodyXml = '';
+
+        // Title paragraph
+        bodyXml += `<w:p>
+          <w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="left"/></w:pPr>
+          <w:r><w:rPr><w:b/><w:color w:val="2A4D8F"/><w:sz w:val="44"/></w:rPr>
+          <w:t>${ex(title)}</w:t></w:r></w:p>`;
+
+        // Description
         if (desc.trim()) {
-            children.push(new Paragraph({
-                children: [new TextRun({ text: desc, size: 24, font: "Segoe UI", color: "444444" })],
-                spacing: { after: 300 },
-            }));
+            desc.split('\n').forEach(line => {
+                bodyXml += `<w:p><w:r><w:rPr><w:color w:val="444444"/><w:sz w:val="22"/></w:rPr>
+                <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
+            });
+            bodyXml += `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr></w:p>`;
         }
 
-        // ── Kroki ──
         let photoCounter = 0;
         let stepNum = 0;
+
         for (const step of steps) {
             stepNum++;
-            const stepTitle = step.querySelector(".stepInput").value || `Krok ${stepNum}`;
+            const stepTitle = step.querySelector(".stepInput").value || ("Krok " + stepNum);
             const stepLong  = step.querySelector(".stepLongText").value;
 
-            // Numer + tytuł kroku
-            children.push(new Paragraph({
-                children: [
-                    new TextRun({ text: `${stepNum}.  `, bold: true, size: 28, font: "Segoe UI", color: "111827" }),
-                    new TextRun({ text: stepTitle, bold: true, size: 28, font: "Segoe UI", color: "111827" }),
-                ],
-                spacing: { before: 280, after: 80 },
-            }));
+            // Step number + title
+            bodyXml += `<w:p>
+              <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
+              <w:r><w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="111827"/></w:rPr>
+              <w:t xml:space="preserve">${stepNum}.   ${ex(stepTitle)}</w:t></w:r></w:p>`;
 
-            // Dodatkowy opis
             if (stepLong.trim()) {
-                children.push(new Paragraph({
-                    children: [new TextRun({ text: stepLong, size: 22, font: "Segoe UI", color: "444444" })],
-                    spacing: { after: 120 },
-                }));
+                stepLong.split('\n').forEach(line => {
+                    bodyXml += `<w:p><w:pPr><w:ind w:left="360"/></w:pPr>
+                    <w:r><w:rPr><w:color w:val="444444"/><w:sz w:val="22"/></w:rPr>
+                    <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
+                });
             }
 
-            // Zdjęcia
+            // Images
             const imgBlocks = step.querySelectorAll(".imageBlock");
             for (const block of imgBlocks) {
                 const img     = block.querySelector("img");
                 const caption = block.querySelector(".imageCaption").value;
                 const after   = block.querySelector(".afterImageText").value;
-
                 if (!img.src || img.style.display === "none") continue;
+
                 photoCounter++;
 
-                try {
-                    // Convert base64 to Uint8Array
-                    const b64 = img.src.split(",")[1];
-                    const byteStr = atob(b64);
-                    const arr = new Uint8Array(byteStr.length);
-                    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+                // Image size
+                const sizePercent = parseInt(img.style.width) || 100;
+                const maxEmu = 5943600; // ~16.5cm in EMU
+                const cx = Math.round(maxEmu * sizePercent / 100);
+                const cy = Math.round(cx * 0.65);
 
-                    // Size from img.style.width percentage
-                    const sizePercent = parseInt(img.style.width) || 100;
-                    const maxW = 580; // points approx full width
-                    const w = Math.round(maxW * sizePercent / 100);
-                    const h = Math.round(w * 0.65); // estimate aspect ratio
+                // Store image
+                const b64 = img.src.split(',')[1];
+                const ext = img.src.startsWith('data:image/png') ? 'png' : 'jpeg';
+                const rId = 'rId' + (rIdCounter++);
+                imageFiles.push({rId, ext, data: b64});
 
-                    children.push(new Paragraph({
-                        children: [new ImageRun({ data: arr, transformation: { width: w, height: h }, type: "png" })],
-                        spacing: { before: 100, after: 60 },
-                    }));
-                } catch(imgErr) { console.warn("Image error:", imgErr); }
+                bodyXml += `<w:p><w:pPr><w:spacing w:before="100" w:after="60"/><w:jc w:val="left"/></w:pPr>
+                  <w:r><w:rPr></w:rPr><w:drawing>
+                    <wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+                      <wp:extent cx="${cx}" cy="${cy}"/>
+                      <wp:docPr id="${rIdCounter}" name="Image${photoCounter}"/>
+                      <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                        <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                          <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                            <pic:nvPicPr>
+                              <pic:cNvPr id="${rIdCounter}" name="Image${photoCounter}"/>
+                              <pic:cNvPicPr/>
+                            </pic:nvPicPr>
+                            <pic:blipFill>
+                              <a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>
+                              <a:stretch><a:fillRect/></a:stretch>
+                            </pic:blipFill>
+                            <pic:spPr>
+                              <a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>
+                              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                            </pic:spPr>
+                          </pic:pic>
+                        </a:graphicData>
+                      </a:graphic>
+                    </wp:inline>
+                  </w:drawing></w:r></w:p>`;
 
-                // Podpis
+                // Caption
                 const fotLabel = prefix
-                    ? (caption ? `${prefix} ${photoCounter}: ${caption}` : `${prefix} ${photoCounter}`)
+                    ? (caption ? (prefix + " " + photoCounter + ": " + caption) : (prefix + " " + photoCounter))
                     : caption;
                 if (fotLabel) {
-                    children.push(new Paragraph({
-                        children: [new TextRun({ text: fotLabel, size: 18, italics: true, color: "666666", font: "Segoe UI" })],
-                        spacing: { after: 60 },
-                    }));
+                    bodyXml += `<w:p><w:r><w:rPr><w:i/><w:color w:val="666666"/><w:sz w:val="18"/></w:rPr>
+                    <w:t>${ex(fotLabel)}</w:t></w:r></w:p>`;
                 }
 
-                // Tekst po zdjęciu
                 if (after.trim()) {
-                    children.push(new Paragraph({
-                        children: [new TextRun({ text: after, size: 22, font: "Segoe UI", color: "333333" })],
-                        spacing: { after: 100 },
-                    }));
+                    after.split('\n').forEach(line => {
+                        bodyXml += `<w:p><w:r><w:rPr><w:color w:val="333333"/><w:sz w:val="22"/></w:rPr>
+                        <w:t xml:space="preserve">${ex(line)}</w:t></w:r></w:p>`;
+                    });
                 }
             }
         }
 
-        // ── Zakończenie ──
+        // Ending
         if (ending.trim()) {
-            children.push(new Paragraph({
-                children: [new TextRun({ text: ending, bold: true, size: 26, font: "Segoe UI", color: "2A4D8F" })],
-                spacing: { before: 400, after: 200 },
-                border: { top: { style: BorderStyle.SINGLE, size: 4, color: "2A4D8F" } },
-            }));
+            bodyXml += `<w:p><w:pPr><w:spacing w:before="400"/><w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="2A4D8F"/></w:pBdr></w:pPr>
+              <w:r><w:rPr><w:b/><w:color w:val="2A4D8F"/><w:sz w:val="26"/></w:rPr>
+              <w:t>${ex(ending)}</w:t></w:r></w:p>`;
         }
 
-        const doc = new Document({
-            creator: "Kreator Instrukcji – Uniwersalny",
-            title,
-            sections: [{ properties: {}, children }],
-        });
+        // ── Build DOCX ZIP ──
+        const zip = new JSZip();
 
-        const blob = await Packer.toBlob(doc);
-        const a = document.createElement("a");
+        // [Content_Types].xml
+        const imgContentTypes = imageFiles.map(f =>
+            `<Override PartName="/word/media/img${f.rId}.${f.ext}" ContentType="image/${f.ext === 'jpeg' ? 'jpeg' : 'png'}"/>`
+        ).join('');
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  ${imgContentTypes}
+</Types>`);
+
+        // _rels/.rels
+        zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+        // word/_rels/document.xml.rels
+        const imgRels = imageFiles.map(f =>
+            `<Relationship Id="${f.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/img${f.rId}.${f.ext}"/>`
+        ).join('');
+        zip.folder('word').folder('_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId_styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  ${imgRels}
+</Relationships>`);
+
+        // word/styles.xml (minimal)
+        zip.folder('word').file('styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/>
+    <w:rPr><w:sz w:val="22"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>
+    <w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style>
+</w:styles>`);
+
+        // word/document.xml
+        zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+  <w:body>${bodyXml}<w:sectPr>
+    <w:pgSz w:w="11906" w:h="16838"/>
+    <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>
+  </w:sectPr></w:body>
+</w:document>`);
+
+        // Add images to zip
+        const wordFolder = zip.folder('word');
+        const mediaFolder = wordFolder.folder('media');
+        for (const f of imageFiles) {
+            mediaFolder.file(`img${f.rId}.${f.ext}`, f.data, {base64: true});
+        }
+
+        // Generate and download
+        const blob = await zip.generateAsync({type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+        const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = "instrukcja.docx";
+        a.download = 'instrukcja.docx';
         a.click();
 
     } catch(err) {
         alert("Błąd generowania DOCX: " + err.message);
         console.error(err);
     }
-
     btn.disabled = false;
     btn.textContent = "📄 Eksportuj do DOCX (Word)";
 });
