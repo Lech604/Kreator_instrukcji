@@ -1,0 +1,280 @@
+/* Układ 2 kolumn */
+#app {
+  display: flex;
+  gap: 25px;
+  padding: 25px;
+  max-width: 1400px;
+  margin: auto;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* Lewa kolumna – edytor */
+#editor {
+  width: 40%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+#editor h2 {
+  margin-top: 0;
+  font-size: 22px;
+  color: #2a4d8f;
+}
+
+#editor label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 600;
+}
+
+#editor input,
+#editor textarea,
+#editor select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+#editor button {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #2a4d8f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#editor button:hover {
+  background: #1f3a6b;
+}
+/* Kroki */
+.stepItem {
+  background: #f7f7f7;
+  padding: 15px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  margin-top: 15px;
+}
+
+.stepHeader {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.stepInput {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+}
+
+.stepLongText {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.stepHeader button {
+  background: #ddd;
+  color: #333;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border: none;
+}
+
+.stepHeader button:hover {
+  background: #ccc;
+}
+
+/* Zdjęcia */
+.stepImages img {
+  max-width: 100%;
+  margin-top: 10px;
+  border-radius: 6px;
+}
+
+.stepImages .imageBlock {
+  background: #ececec;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.stepImages input {
+  width: 100%;
+  margin-top: 5px;
+}
+
+/* Minimalistyczne ➖ ➕ */
+.imageControls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.imageSizeValue {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.imageControls button {
+  background: #2a4d8f;
+  color: white;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.imageControls button:hover {
+  background: #1f3a6b;
+}
+/* PODGLĄD */
+#preview {
+  width: 60%;
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #dcdcdc;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+#output ol li {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+#output .stepLongTextPreview {
+  margin: 8px 0 12px 0;
+  font-size: 15px;
+  color: #444;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+#output .imagePreview img {
+  margin-top: 4px;
+  border-radius: 6px;
+  max-height: 200mm;
+  object-fit: contain;
+}
+
+#output .imagePreview p {
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+#output h3 {
+  margin-top: 30px;
+  font-size: 20px;
+  color: #2a4d8f;
+}
+
+/* PDF button */
+#exportPDF {
+  margin-top: 20px;
+  padding: 12px 18px;
+  background: #1f7a1f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+#exportPDF:hover {
+  background: #145214;
+}
+
+/* PDF - zapobiegaj przecinaniu elementów między stronami */
+#output .imagePreview {
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin-bottom: 8px;
+}
+
+#output ol li {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+#output {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* Pole tekstowe po zdjęciu - edytor */
+.afterImageText {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+/* Pole tekstowe po zdjęciu - podgląd/PDF */
+#output .afterImageTextPreview {
+  margin-top: 6px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  color: #333;
+  line-height: 1.4;
+}
+
+#exportDOCX {
+  margin-top: 10px; padding: 12px 18px;
+  background: #2563eb; color: white;
+  border: none; border-radius: 8px;
+  cursor: pointer; font-size: 15px; width: 100%;
+}
+#exportDOCX:hover { background: #1d4ed8; }
+#exportDOCX:disabled { background: #93c5fd; cursor: not-allowed; }
+
+@media print {
+  /* Ukryj nagłówek/stopkę przeglądarki — margin:0 eliminuje miejsce na URL */
+  @page {
+    size: A4;
+    margin: 0mm;
+  }
+  /* Własne marginesy na contencie */
+  #output {
+    padding: 14mm 16mm !important;
+  }
+  #editor { display: none !important; }
+  #preview {
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  h2 { display: none !important; }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
