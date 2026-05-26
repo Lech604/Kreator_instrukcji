@@ -1,7 +1,9 @@
 /* ============================================================
-   Kreator Instrukcji Oświetlenia — app.js
+   Kreator Instrukcji Oświetlenia — app.js v4
+   Logika i struktura z v3, eksport (DOCX/PDF/HTML) z v1
    ============================================================ */
 
+// ── STAŁE ────────────────────────────────────────────────────────────────────
 const COLS=[
   {id:'blue',  bg:'#eff6ff',border:'#3b82f6',text:'#1e40af',dot:'#3b82f6'},
   {id:'purple',bg:'#f5f3ff',border:'#8b5cf6',text:'#5b21b6',dot:'#8b5cf6'},
@@ -13,42 +15,28 @@ const COLS=[
 const COL=id=>COLS.find(c=>c.id===id)||COLS[0];
 const CTRL={button:'tylko przycisk',sensor:'tylko sensor',both:'przycisk + sensor'};
 const PANEL_TYPES=[
-  {id:'pb2',label:'PB2 — 2 klawisze',keys:[1,2]},
-  {id:'pb4',label:'PB4 — 4 klawisze',keys:[1,2,3,4]},
-  {id:'pb6',label:'PB6 — 6 klawiszy',keys:[1,2,3,4,5,6]},
-  {id:'pb8',label:'PB8 — 8 klawiszy',keys:[1,2,3,4,5,6,7,8]},
+  {id:'PB2',label:'PB2',keys:2},
+  {id:'PB4',label:'PB4',keys:4},
+  {id:'PB6',label:'PB6',keys:6},
+  {id:'PB8',label:'PB8',keys:8},
 ];
-const ACTION_LABELS={'short1':'krótkie','long1':'długie','long2':'2× długie','short2':'2× krótkie'};
-const ACTION_CSS={'short1':'at-short1','long1':'at-long1','long2':'at-long2','short2':'at-short2'};
-const ACTION_LABELS_E={'short1':'krótkie naciśnięcie','long1':'długie przytrzymanie','long2':'2× długie przytrzymanie','short2':'2× krótkie naciśnięcie'};
+const KEY_ACTIONS=['Włącz/Wyłącz','Włącz','Wyłącz','Ściemnianie','Rozjaśnianie','Scena','HCL','Brak'];
 const ACTION_COLORS={'short1':'#dbeafe','long1':'#e0e7ff','long2':'#ede9fe','short2':'#fce7f3'};
 const ACTION_TEXT={'short1':'#1e40af','long1':'#3730a3','long2':'#5b21b6','short2':'#9d174d'};
 
+// ── STAN ─────────────────────────────────────────────────────────────────────
 let curStep=0;
-let btnImgB64=null;
-let btnPanelType='pb8';
-let secCnt=2, zoneCnt=10;
-// keyMap[sid][keyNum] = zid  (which zone owns this key)
-let keyMap={};
-// activeZone[sid] = zid  (selected zone in panel picker)
-let activeZone={};
+let secCnt=0, devCnt=0, zoneCnt=0;
+const dbImages={PB2:null,PB4:null,PB6:null,PB8:null};
+let sections=[];
 
-let sections=[mkSection(1,'ENGINEERING')];
+const SNAMES=['Ustawienia','Sekcje','Podgląd'];
 
-function mkSection(id,name){
-  return {id,name,image:null,zones:[
-    mkZone(zoneCnt++,'S1','blue'),
-    mkZone(zoneCnt++,'S2','purple'),
-    mkZone(zoneCnt++,'S3','green'),
-  ]};
-}
-function mkZone(id,name,colorId){
-  return {id,name,description:'',colorId,controlType:'button',buttonKeys:[],logicRules:[]};
-}
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function uid(){return Date.now()+(Math.random()*99999|0);}
 
-// ── STEPS ────────────────────────────────────────────────────────────────
-const SNAMES=['Ustawienia','Przycisk','Sekcje','Logika','Podgląd'];
+// ── STEPS ─────────────────────────────────────────────────────────────────────
 function renderSteps(){
   const bar=document.getElementById('steps-bar');bar.innerHTML='';
   SNAMES.forEach((s,i)=>{
@@ -65,173 +53,68 @@ function goTo(n){
   curStep=n;
   document.getElementById('page-'+curStep).classList.remove('hidden');
   renderSteps();
-  if(n===3)renderLogic();
-  if(n===4)renderPreview();
+  if(n===2)renderPreview();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ── BUTTON IMAGE ──────────────────────────────────────────────────────────
-function handleBtnFile(f){
-  if(!f)return;
+// ── BAZA ZDJĘĆ ────────────────────────────────────────────────────────────────
+function loadDB(type,input){
+  const f=input.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=ev=>{
-    btnImgB64=ev.target.result;
-    document.getElementById('btn-prev').src=btnImgB64;
-    document.getElementById('btn-prev').classList.remove('hidden');
-    document.getElementById('btn-ph').classList.add('hidden');
-    document.getElementById('btn-rm').classList.remove('hidden');
-    renderPanelTypeSelector();
+    dbImages[type]=ev.target.result;
+    const slot=document.getElementById('db-'+type);
+    const img=document.getElementById('dbimg-'+type);
+    const lbl=document.getElementById('dbl-'+type);
+    slot.classList.add('loaded');
+    img.src=ev.target.result;
+    img.classList.remove('hidden');
+    lbl.innerHTML=`<div style="font-size:14px">✓</div><div style="font-weight:700">${type}</div><small>wczytano</small>`;
+    // aktualizuj istniejące panele tego typu które nie mają własnego zdjęcia
+    sections.forEach(s=>(s.devices||[]).forEach(d=>{
+      if(d.type==='panel'&&d.panelType===type&&!d.imageOverride)d.image=ev.target.result;
+    }));
   };
   r.readAsDataURL(f);
 }
-function handleBtnDrop(ev){ev.preventDefault();handleBtnFile(ev.dataTransfer.files[0]);}
-function removeBtnImg(){
-  btnImgB64=null;
-  document.getElementById('btn-prev').classList.add('hidden');
-  document.getElementById('btn-ph').classList.remove('hidden');
-  document.getElementById('btn-rm').classList.add('hidden');
-}
 
-function renderPanelTypeSelector(){
-  const el=document.getElementById('panel-type-selector');
-  if(!el)return;
-  el.innerHTML=`
-    <label class="lbl" style="margin-bottom:8px;display:block">Typ panelu</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${PANEL_TYPES.map(pt=>`
-        <button class="ctrl-btn${btnPanelType===pt.id?' active':''}"
-          onclick="setPanelType('${pt.id}')">${pt.label}</button>
-      `).join('')}
-    </div>`;
+// ── SEKCJE ────────────────────────────────────────────────────────────────────
+function mkSection(name){
+  return {id:uid(),name:name||'Sekcja '+(++secCnt),image:null,devices:[],zones:[],activeTab:'info'};
 }
-
-function setPanelType(id){
-  btnPanelType=id;
-  renderPanelTypeSelector();
+function addSection(){
+  const s=mkSection();
+  sections.push(s);
   renderSections();
+  // auto-otwórz nową sekcję
+  setTimeout(()=>{
+    const body=document.getElementById('sbody-'+s.id);
+    if(body)body.classList.remove('hidden');
+  },30);
 }
-
-// ── KEY MAP ────────────────────────────────────────────────────────────────
-function getMap(sid){if(!keyMap[sid])keyMap[sid]={};return keyMap[sid];}
-function getActive(sid){
-  const sec=sections.find(s=>s.id===sid);
-  if(!sec||!sec.zones.length)return null;
-  if(!activeZone[sid])activeZone[sid]=sec.zones[0].id;
-  return activeZone[sid];
-}
-function setActive(sid,zid){activeZone[sid]=zid;renderPanelPicker(sid);}
-
-function toggleKey(sid,kn){
-  const map=getMap(sid);
-  const az=getActive(sid);
-  if(!az)return;
-  if(map[kn]===az){delete map[kn];}
-  else{map[kn]=az;}
-  renderPanelPicker(sid);
-  syncKeys(sid);
-}
-
-function syncKeys(sid){
-  const map=getMap(sid);
-  sections=sections.map(s=>{
-    if(s.id!==sid)return s;
-    return {...s,zones:s.zones.map(z=>{
-      const assigned=Object.entries(map)
-        .filter(([,v])=>v===z.id)
-        .map(([k])=>parseInt(k))
-        .sort((a,b)=>a-b);
-      // rebuild buttonKeys: keep existing for assigned panel keys, remove unassigned
-      const existingMap=new Map((z.buttonKeys||[]).map(k=>[k.panelKey,k]));
-      const newKeys=assigned.map(kn=>{
-        if(existingMap.has(kn))return existingMap.get(kn);
-        return {id:Date.now()+(Math.random()*9999|0),label:`K${kn}`,panelKey:kn,actions:[{id:Date.now()+1,type:'short1',func:''}]};
-      });
-      return {...z,buttonKeys:newKeys};
-    })};
-  });
-  renderSections();
-}
-
-// ── PANEL PICKER ──────────────────────────────────────────────────────────
-function renderPanelPicker(sid){
-  const el=document.getElementById('ppick-'+sid);
-  if(!el)return;
-  const sec=sections.find(s=>s.id===sid);
-  if(!sec)return;
-  const pt=PANEL_TYPES.find(p=>p.id===btnPanelType)||PANEL_TYPES[3];
-  const map=getMap(sid);
-  const az=getActive(sid);
-
-  // zone tabs
-  const tabs=sec.zones.map(z=>{
-    const c=COL(z.colorId);
-    const cnt=Object.values(map).filter(v=>v===z.id).length;
-    const act=z.id===az;
-    return `<div class="ppick-tab${act?' active':''}"
-      style="${act?`border-color:${c.border};background:${c.bg};`:'border-color:#e5e7eb;background:#fff'}"
-      onclick="setActive(${sid},${z.id})">
-      <span class="ppick-dot" style="background:${c.dot}"></span>
-      <span style="font-size:12px;font-weight:600;color:${act?c.text:'#374151'}">${e(z.name)}</span>
-      ${cnt?`<span class="ppick-cnt" style="background:${c.dot};color:#fff">${cnt}</span>`:''}
-    </div>`;
-  }).join('');
-
-  // panel keys grid — left col odd, right col even
-  const leftKeys=pt.keys.filter((_,i)=>i%2===0);
-  const rightKeys=pt.keys.filter((_,i)=>i%2!==0);
-
-  function renderKey(kn){
-    const ownerZid=map[kn];
-    const ownerZone=ownerZid?sec.zones.find(z=>z.id===ownerZid):null;
-    const c=ownerZone?COL(ownerZone.colorId):null;
-    const isActive=ownerZid===az;
-    return `<div class="pb-key${ownerZid?' assigned':''}"
-      style="${c?`background:${c.dot};border-color:${c.dot};color:#fff`:'background:#2d2d2d;border-color:#444;color:#aaa'}"
-      onclick="toggleKey(${sid},${kn})"
-      title="${ownerZone?ownerZone.name:'Nieprzypisany'}">
-      <span class="pb-key-num">${kn}</span>
-      ${ownerZone?`<span class="pb-key-zone">${e(ownerZone.name)}</span>`:''}
-    </div>`;
-  }
-
-  const grid=`
-    <div class="pb-panel">
-      <div class="pb-col">${leftKeys.map(renderKey).join('')}</div>
-      <div class="pb-center">${Array(6).fill('<div class="pb-led"></div>').join('')}</div>
-      <div class="pb-col">${rightKeys.map(renderKey).join('')}</div>
-    </div>`;
-
-  el.innerHTML=`
-    <div class="ppick-wrap">
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px">1. Wybierz strefę</div>
-        <div class="ppick-tabs">${tabs}</div>
-        <p style="font-size:11px;color:#9ca3af;margin-top:8px">Kliknij strefę, potem klawisze panelu które nią sterują.</p>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px">2. Kliknij klawisze</div>
-        ${grid}
-        <p style="font-size:11px;color:#9ca3af;margin-top:6px;text-align:center">Kliknij ponownie aby odznaczyć</p>
-      </div>
-    </div>`;
-}
-
-// ── SECTIONS ──────────────────────────────────────────────────────────────
-function addSection(){sections.push(mkSection(secCnt++,'Sekcja '+secCnt));renderSections();}
 function delSection(sid){sections=sections.filter(s=>s.id!==sid);renderSections();}
-function toggleSection(sid){document.getElementById('sbody-'+sid).classList.toggle('hidden');}
-function setSec(sid,k,v){sections=sections.map(s=>s.id===sid?{...s,[k]:v}:s);}
+function toggleSection(sid){
+  const b=document.getElementById('sbody-'+sid);
+  if(b)b.classList.toggle('hidden');
+}
+function setSec(sid,k,v){
+  sections=sections.map(s=>s.id===sid?{...s,[k]:v}:s);
+}
+function switchTab(sid,tab){
+  sections=sections.map(s=>s.id===sid?{...s,activeTab:tab}:s);
+  document.querySelectorAll(`.sec-tab[data-sid="${sid}"]`).forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.querySelectorAll(`.sec-tab-panel[data-sid="${sid}"]`).forEach(p=>p.classList.toggle('active',p.dataset.tab===tab));
+}
 
-function handleSecImgFile(sid,file){
+function handleSecImg(sid,file){
   if(!file)return;
   const r=new FileReader();
   r.onload=ev=>{
-    const b64=ev.target.result;
-    sections=sections.map(s=>s.id===sid?{...s,image:b64}:s);
+    sections=sections.map(s=>s.id===sid?{...s,image:ev.target.result}:s);
     const pr=document.getElementById('simg-prev-'+sid);
     const ph=document.getElementById('simg-ph-'+sid);
     const rm=document.getElementById('simg-rm-'+sid);
-    if(pr){pr.src=b64;pr.classList.remove('hidden');}
+    if(pr){pr.src=ev.target.result;pr.classList.remove('hidden');}
     if(ph)ph.classList.add('hidden');
     if(rm)rm.classList.remove('hidden');
   };
@@ -247,41 +130,255 @@ function removeSecImg(sid){
   if(rm)rm.classList.add('hidden');
 }
 
-// ── ZONES ─────────────────────────────────────────────────────────────────
+// ── URZĄDZENIA ────────────────────────────────────────────────────────────────
+function mkDevice(type,sid){
+  const d={id:uid(),type,sectionId:sid,name:'',desc:'',image:null,imageOverride:false};
+  if(type==='panel'){d.panelType='PB4';d.image=dbImages['PB4']||null;d.keys=mkKeys('PB4');}
+  if(type==='tablet'){/* no extra */}
+  if(type==='sensor'){d.sensorDesc='';d.sensorImage=null;}
+  return d;
+}
+function mkKeys(pt){
+  const n=PANEL_TYPES.find(p=>p.id===pt)?.keys||4;
+  return Array.from({length:n},(_,i)=>({num:i+1,name:'',action:'Włącz/Wyłącz'}));
+}
+function addDevice(sid,type){
+  const s=sections.find(s=>s.id===sid);if(!s)return;
+  const d=mkDevice(type,sid);
+  sections=sections.map(s=>s.id===sid?{...s,devices:[...s.devices,d]}:s);
+  refreshDevices(sid);
+  refreshSecBadges(sid);
+}
+function delDevice(devId){
+  let sid;
+  sections.forEach(s=>{if((s.devices||[]).find(d=>d.id===devId))sid=s.id;});
+  sections=sections.map(s=>({...s,devices:(s.devices||[]).filter(d=>d.id!==devId)}));
+  if(sid){refreshDevices(sid);refreshSecBadges(sid);}
+}
+function setPanelType(devId,pt){
+  sections=sections.map(s=>({...s,devices:(s.devices||[]).map(d=>{
+    if(d.id!==devId)return d;
+    const img=!d.imageOverride?(dbImages[pt]||null):d.image;
+    return {...d,panelType:pt,keys:mkKeys(pt),image:img};
+  })}));
+  // update UI
+  document.querySelectorAll(`.pb-btn[data-dev="${devId}"]`).forEach(b=>b.classList.toggle('active',b.dataset.pt===pt));
+  const ke=document.getElementById('keys-'+devId);
+  if(ke){let d;sections.forEach(s=>(s.devices||[]).forEach(x=>{if(x.id===devId)d=x;}));if(d)ke.innerHTML=renderKeysHTML(d);}
+  const ip=document.getElementById('devimg-'+devId);
+  if(ip){let d;sections.forEach(s=>(s.devices||[]).forEach(x=>{if(x.id===devId)d=x;}));if(d){ip.src=d.image||'';ip.classList.toggle('hidden',!d.image);}}
+}
+function setDevField(devId,field,val){
+  sections=sections.map(s=>({...s,devices:(s.devices||[]).map(d=>d.id===devId?{...d,[field]:val}:d)}));
+}
+function upKey(devId,num,field,val){
+  sections=sections.map(s=>({...s,devices:(s.devices||[]).map(d=>{
+    if(d.id!==devId)return d;
+    return {...d,keys:d.keys.map(k=>k.num===num?{...k,[field]:val}:k)};
+  })}));
+}
+function handleDevImg(devId,file,isSensor){
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const data=ev.target.result;
+    sections=sections.map(s=>({...s,devices:(s.devices||[]).map(d=>{
+      if(d.id!==devId)return d;
+      if(isSensor)return {...d,sensorImage:data};
+      return {...d,image:data,imageOverride:true};
+    })}));
+    const ip=document.getElementById('devimg-'+devId);
+    if(ip){ip.src=data;ip.classList.remove('hidden');}
+    const ph=document.getElementById('devph-'+devId);
+    if(ph)ph.classList.add('hidden');
+  };
+  r.readAsDataURL(file);
+}
+
+function renderKeysHTML(d){
+  if(!d.keys||!d.keys.length)return'';
+  return`<table class="key-table">
+    <thead><tr><th>Klawisz</th><th>Nazwa / co steruje</th><th>Typ akcji</th></tr></thead>
+    <tbody>${d.keys.map(k=>`<tr>
+      <td><span class="key-num-badge">K${k.num}</span></td>
+      <td><input class="inp" style="font-size:12px;padding:5px 8px" placeholder="np. Oświetlenie ogólne" value="${e(k.name)}" oninput="upKey(${d.id},${k.num},'name',this.value)"></td>
+      <td><select class="key-action-sel" onchange="upKey(${d.id},${k.num},'action',this.value)">
+        ${KEY_ACTIONS.map(a=>`<option ${k.action===a?'selected':''}>${a}</option>`).join('')}
+      </select></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function renderDeviceCard(d){
+  const labels={panel:'Panel',tablet:'Tablet',sensor:'Sensor'};
+  const colors={panel:'background:#dbeafe;color:#1e40af',tablet:'background:#ecfdf5;color:#065f46',sensor:'background:#f3f4f6;color:#374151'};
+  const sub=d.type==='panel'?d.panelType:labels[d.type];
+  const title=d.name||labels[d.type];
+
+  let body='';
+  if(d.type==='panel'){
+    body=`
+      <div class="field"><label class="lbl">Typ panelu</label>
+        <div class="pb-grid">${PANEL_TYPES.map(pt=>`<button class="pb-btn${d.panelType===pt.id?' active':''}" data-dev="${d.id}" data-pt="${pt.id}" onclick="setPanelType(${d.id},'${pt.id}')">${pt.label}</button>`).join('')}</div>
+      </div>
+      <div class="field"><label class="lbl">Nazwa / lokalizacja</label>
+        <input class="inp" value="${e(d.name)}" placeholder="np. Panel przy wejściu" oninput="setDevField(${d.id},'name',this.value)">
+      </div>
+      <div class="field"><label class="lbl">Opis / uwagi <span style="font-weight:400">(opcjonalny)</span></label>
+        <textarea class="inp" rows="2" placeholder="Uwagi dla użytkownika..." oninput="setDevField(${d.id},'desc',this.value)">${e(d.desc)}</textarea>
+      </div>
+      <div class="field"><label class="lbl">Zdjęcie panelu <span style="font-weight:400">(zastępuje bazę)</span></label>
+        <div class="img-drop" style="min-height:70px" onclick="document.getElementById('dinp-${d.id}').click()">
+          <div class="img-ph" id="devph-${d.id}" ${d.image?'style="display:none"':''}><div class="ic">📷</div><p>Kliknij aby wczytać własne</p></div>
+          <img id="devimg-${d.id}" src="${d.image||''}" ${d.image?'':'class="hidden"'} style="max-height:150px;object-fit:contain;width:100%">
+        </div>
+        <input type="file" id="dinp-${d.id}" accept="image/*" class="hidden" onchange="handleDevImg(${d.id},this.files[0],false)">
+      </div>
+      <div class="field"><label class="lbl">Klawisze</label>
+        <div id="keys-${d.id}">${renderKeysHTML(d)}</div>
+      </div>`;
+  } else if(d.type==='tablet'){
+    body=`
+      <div class="field"><label class="lbl">Nazwa / lokalizacja</label>
+        <input class="inp" value="${e(d.name)}" placeholder="np. Tablet przy recepcji" oninput="setDevField(${d.id},'name',this.value)">
+      </div>
+      <div class="field"><label class="lbl">Opis interfejsu / funkcji</label>
+        <textarea class="inp" rows="3" placeholder="Jakie sceny/funkcje obsługuje tablet..." oninput="setDevField(${d.id},'desc',this.value)">${e(d.desc)}</textarea>
+      </div>
+      <div class="field"><label class="lbl">Zdjęcie ekranu <span style="font-weight:400">(opcjonalne)</span></label>
+        <div class="img-drop" style="min-height:70px" onclick="document.getElementById('dinp-${d.id}').click()">
+          <div class="img-ph" id="devph-${d.id}" ${d.image?'style="display:none"':''}><div class="ic">📷</div><p>Kliknij aby wczytać</p></div>
+          <img id="devimg-${d.id}" src="${d.image||''}" ${d.image?'':'class="hidden"'} style="max-height:150px;object-fit:contain;width:100%">
+        </div>
+        <input type="file" id="dinp-${d.id}" accept="image/*" class="hidden" onchange="handleDevImg(${d.id},this.files[0],false)">
+      </div>`;
+  } else { // sensor
+    body=`
+      <div class="field"><label class="lbl">Nazwa / lokalizacja</label>
+        <input class="inp" value="${e(d.name)}" placeholder="np. Czujnik sufit — środek" oninput="setDevField(${d.id},'name',this.value)">
+      </div>
+      <div class="field"><label class="lbl">Opis działania</label>
+        <textarea class="inp" rows="3" placeholder="Typ detekcji, czasy reakcji, progi natężenia, HCL, uwagi..." oninput="setDevField(${d.id},'sensorDesc',this.value)">${e(d.sensorDesc||'')}</textarea>
+      </div>
+      <div class="field"><label class="lbl">Rzut zasięgu detekcji <span style="font-weight:400">(opcjonalny)</span></label>
+        <div class="img-drop" style="min-height:70px" onclick="document.getElementById('dinp-${d.id}').click()">
+          <div class="img-ph" id="devph-${d.id}" ${d.sensorImage?'style="display:none"':''}><div class="ic">📷</div><p>Kliknij aby wczytać rzut zasięgu</p></div>
+          <img id="devimg-${d.id}" src="${d.sensorImage||''}" ${d.sensorImage?'':'class="hidden"'} style="max-height:150px;object-fit:contain;width:100%">
+        </div>
+        <input type="file" id="dinp-${d.id}" accept="image/*" class="hidden" onchange="handleDevImg(${d.id},this.files[0],true)">
+      </div>`;
+  }
+
+  return `<div class="dev-card" id="dcard-${d.id}">
+    <div class="dev-hdr" onclick="toggleDev(${d.id})">
+      <div>
+        <span class="dev-title">${e(title)}</span>
+        <span class="dev-badge" style="${colors[d.type]}">${sub}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="event.stopPropagation();delDevice(${d.id})" class="btn btn-danger btn-sm" style="font-size:11px;padding:3px 9px">usuń</button>
+        <span style="color:#9ca3af;font-size:11px">▼</span>
+      </div>
+    </div>
+    <div class="dev-body hidden" id="dbody-${d.id}">${body}</div>
+  </div>`;
+}
+
+function toggleDev(devId){
+  const b=document.getElementById('dbody-'+devId);
+  if(b)b.classList.toggle('hidden');
+}
+
+function refreshDevices(sid){
+  const s=sections.find(s=>s.id===sid);
+  const el=document.getElementById('devlist-'+sid);
+  if(!el||!s)return;
+  if(!s.devices||!s.devices.length){
+    el.innerHTML='<p class="empty-msg" style="padding:8px 0">Brak urządzeń — dodaj panel, tablet lub sensor</p>';
+    return;
+  }
+  el.innerHTML=s.devices.map(d=>renderDeviceCard(d)).join('');
+}
+
+// ── STREFY ────────────────────────────────────────────────────────────────────
+function mkZone(sid){
+  const s=sections.find(s=>s.id===sid);
+  const idx=s?s.zones.length:0;
+  return {id:uid(),sectionId:sid,name:'S'+(idx+1),description:'',colorId:COLS[idx%COLS.length].id,controlType:'button',logicRules:[]};
+}
 function addZone(sid){
-  sections=sections.map(s=>s.id===sid?{...s,zones:[...s.zones,mkZone(zoneCnt++,'S'+(s.zones.length+1),COLS[s.zones.length%COLS.length].id)]}:s);
-  renderSections();
+  const z=mkZone(sid);
+  sections=sections.map(s=>s.id===sid?{...s,zones:[...s.zones,z]}:s);
+  refreshZones(sid);
+  refreshSecBadges(sid);
 }
 function delZone(sid,zid){
-  // remove key assignments for this zone
-  const map=getMap(sid);
-  Object.keys(map).forEach(k=>{if(map[k]===zid)delete map[k];});
   sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.filter(z=>z.id!==zid)}:s);
-  renderSections();
+  refreshZones(sid);
+  refreshSecBadges(sid);
 }
-function toggleZone(zid){document.getElementById('zbody-'+zid).classList.toggle('hidden');}
+function toggleZone(zid){
+  const b=document.getElementById('zbody-'+zid);
+  if(b)b.classList.toggle('hidden');
+}
 function setZ(sid,zid,k,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,[k]:v}:z)}:s);}
-function setZColor(sid,zid,cid){setZ(sid,zid,'colorId',cid);renderSections();}
-function setZCtrl(sid,zid,v){setZ(sid,zid,'controlType',v);renderSections();}
-
-function addAction(sid,zid,kid){
-  sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>{
-    if(k.id!==kid)return k;
-    const used=k.actions.map(a=>a.type);
-    const next=['short1','long1','long2','short2'].find(t=>!used.includes(t));
-    if(!next)return k;
-    return {...k,actions:[...k.actions,{id:Date.now(),type:next,func:''}]};
-  })}:z)}:s);
-  renderSections();
-}
-function setAction(sid,zid,kid,aid,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>k.id===kid?{...k,actions:k.actions.map(a=>a.id===aid?{...a,func:v}:a)}:k)}:z)}:s);}
-function delAction(sid,zid,kid,aid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,buttonKeys:z.buttonKeys.map(k=>k.id===kid?{...k,actions:k.actions.filter(a=>a.id!==aid)}:k)}:z)}:s);renderSections();}
-
-function addRule(sid,zid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:[...z.logicRules,{id:Date.now(),trigger:'',action:'',note:''}]}:z)}:s);renderSections();}
+function setZColor(sid,zid,cid){setZ(sid,zid,'colorId',cid);refreshZones(sid);}
+function setZCtrl(sid,zid,v){setZ(sid,zid,'controlType',v);refreshZones(sid);}
+function addRule(sid,zid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:[...z.logicRules,{id:uid(),trigger:'',action:'',note:''}]}:z)}:s);refreshZones(sid);}
 function setRule(sid,zid,rid,f,v){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:z.logicRules.map(r=>r.id===rid?{...r,[f]:v}:r)}:z)}:s);}
-function delRule(sid,zid,rid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:z.logicRules.filter(r=>r.id!==rid)}:z)}:s);renderSections();}
+function delRule(sid,zid,rid){sections=sections.map(s=>s.id===sid?{...s,zones:s.zones.map(z=>z.id===zid?{...z,logicRules:z.logicRules.filter(r=>r.id!==rid)}:z)}:s);refreshZones(sid);}
 
-// ── RENDER SECTIONS ────────────────────────────────────────────────────────
+function renderZoneCard(z,sid){
+  const c=COL(z.colorId);
+  const cDotsH=COLS.map(cl=>`<div class="cdot${z.colorId===cl.id?' sel':''}" style="background:${cl.dot}" onclick="setZColor(${sid},${z.id},'${cl.id}')"></div>`).join('');
+  const ctrlH=['button','sensor','both'].map(v=>`<button class="ctrl-btn${z.controlType===v?' active':''}" onclick="setZCtrl(${sid},${z.id},'${v}')">${CTRL[v]}</button>`).join('');
+  const rulesH=z.logicRules.map((r,ri)=>`
+    <div class="rule-box">
+      <div class="rule-hdr"><span class="rule-lbl">Reguła ${ri+1}</span><button class="xbtn" onclick="delRule(${sid},${z.id},${r.id})">×</button></div>
+      <div class="grid2" style="margin-bottom:7px">
+        <div><label class="lbl" style="font-size:9px">Wyzwalacz</label><input class="inp" style="font-size:12px" placeholder="np. Naciśnięcie przycisku" value="${e(r.trigger)}" oninput="setRule(${sid},${z.id},${r.id},'trigger',this.value)"></div>
+        <div><label class="lbl" style="font-size:9px">Akcja</label><input class="inp" style="font-size:12px" placeholder="np. Sensor zablokowany" value="${e(r.action)}" oninput="setRule(${sid},${z.id},${r.id},'action',this.value)"></div>
+      </div>
+      <div><label class="lbl" style="font-size:9px">Uwaga</label><input class="inp" style="font-size:12px" placeholder="np. Po 20 min braku ruchu — powrót do sensora" value="${e(r.note)}" oninput="setRule(${sid},${z.id},${r.id},'note',this.value)"></div>
+    </div>`).join('');
+
+  return `<div class="zone-wrap" style="border-color:${c.border}" id="zwrap-${z.id}">
+    <div class="zone-hdr" style="background:${c.bg}" onclick="toggleZone(${z.id})">
+      <div class="zone-hdr-l">
+        <div class="zdot" style="background:${c.dot}"></div>
+        <span class="zname" id="zname-${z.id}" style="color:${c.text}">${e(z.name)||'Strefa'}</span>
+        <span class="zpill" style="background:${c.dot}22;color:${c.text}">${CTRL[z.controlType]}</span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button onclick="event.stopPropagation();delZone(${sid},${z.id})" class="btn btn-danger btn-sm" style="font-size:11px;padding:3px 9px">usuń</button>
+        <span style="color:#9ca3af;font-size:11px">▼</span>
+      </div>
+    </div>
+    <div class="zbody hidden" id="zbody-${z.id}">
+      <div class="grid2 field">
+        <div><label class="lbl">Nazwa strefy</label><input class="inp" value="${e(z.name)}" oninput="setZ(${sid},${z.id},'name',this.value);document.getElementById('zname-${z.id}').textContent=this.value||'Strefa'"></div>
+        <div><label class="lbl">Kolor</label><div class="color-row">${cDotsH}</div></div>
+      </div>
+      <div class="field"><label class="lbl">Opis strefy</label><textarea class="inp" rows="2" placeholder="np. Oświetlenie biurek przy oknie" oninput="setZ(${sid},${z.id},'description',this.value)">${e(z.description)}</textarea></div>
+      <div class="field"><label class="lbl">Typ sterowania</label><div class="ctrl-btns">${ctrlH}</div></div>
+      <div class="field" style="margin-bottom:0">
+        <div class="sub-hdr"><label class="lbl">Logika działania</label><button class="add-link" onclick="addRule(${sid},${z.id})">+ dodaj regułę</button></div>
+        ${rulesH||'<p class="empty-msg">Brak zdefiniowanej logiki</p>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function refreshZones(sid){
+  const s=sections.find(s=>s.id===sid);
+  const el=document.getElementById('zonelist-'+sid);
+  if(!el||!s)return;
+  el.innerHTML=s.zones.length
+    ? s.zones.map(z=>renderZoneCard(z,sid)).join('')
+    : '<p class="empty-msg" style="padding:8px 0">Brak stref — dodaj strefę</p>';
+}
+
+// ── RENDER SECTIONS ────────────────────────────────────────────────────────────
 function renderSections(){
   const list=document.getElementById('sections-list');
   const emp=document.getElementById('sections-empty');
@@ -289,172 +386,85 @@ function renderSections(){
   emp.classList.toggle('hidden',sections.length>0);
 
   sections.forEach(sec=>{
-    const totalZones=sec.zones.length;
+    const dc=(sec.devices||[]).length;
+    const zc=(sec.zones||[]).length;
     const div=document.createElement('div');
     div.className='sec-wrap';
     div.id='sec-card-'+sec.id;
-
-    let zonesHTML=sec.zones.map(z=>{
-      const c=COL(z.colorId);
-      const keysH=(z.buttonKeys||[]).map(k=>{
-        const acts=k.actions||[];
-        const used=acts.map(a=>a.type);
-        const canAdd=used.length<4;
-        const actionsH=acts.map(a=>`
-          <div class="action-row">
-            <span class="action-type ${ACTION_CSS[a.type]}">${ACTION_LABELS[a.type]}</span>
-            <input class="inp" style="font-size:12px" placeholder="np. ON/OFF, DIMM UP..." value="${e(a.func)}" oninput="setAction(${sec.id},${z.id},${k.id},${a.id},this.value)">
-            <button class="xbtn" onclick="delAction(${sec.id},${z.id},${k.id},${a.id})">×</button>
-          </div>`).join('');
-        return `<div class="key-row">
-          <div class="key-row-top">
-            <div style="display:flex;align-items:center;gap:6px">
-              <span class="pb-key-badge">K${k.panelKey||'?'}</span>
-              <input class="inp" style="font-size:12px;flex:1" placeholder="Opis klawisza" value="${e(k.label)}" oninput="(function(){const sec=sections.find(s=>s.id===${sec.id});const z=sec&&sec.zones.find(z=>z.id===${z.id});const k=z&&z.buttonKeys.find(k=>k.id===${k.id});if(k)k.label=this.value}).call(this)">
-            </div>
-            <button class="xbtn" style="margin-left:auto" onclick="(function(){const map=getMap(${sec.id});Object.keys(map).forEach(n=>{if(map[n]===${z.id}&&parseInt(n)===${k.panelKey||0})delete map[n]});syncKeys(${sec.id})})()">×</button>
-          </div>
-          <div class="key-actions">
-            ${actionsH}
-            ${canAdd?`<button class="add-action-link" onclick="addAction(${sec.id},${z.id},${k.id})">+ dodaj akcję (${4-used.length} pozostałe)</button>`:'<span style="font-size:10px;color:#d1d5db;font-style:italic">Maksymalna liczba akcji osiągnięta</span>'}
-          </div>
-        </div>`;
-      }).join('');
-
-      const rulesH=z.logicRules.map((r,ri)=>`
-        <div class="rule-box">
-          <div class="rule-hdr"><span class="rule-lbl">Reguła ${ri+1}</span><button class="xbtn" onclick="delRule(${sec.id},${z.id},${r.id})">×</button></div>
-          <div class="grid2" style="margin-bottom:7px">
-            <div><label class="lbl" style="font-size:9px">Wyzwalacz</label><input class="inp" style="font-size:12px" placeholder="np. Naciśnięcie przycisku" value="${e(r.trigger)}" oninput="setRule(${sec.id},${z.id},${r.id},'trigger',this.value)"></div>
-            <div><label class="lbl" style="font-size:9px">Akcja</label><input class="inp" style="font-size:12px" placeholder="np. Sensor zablokowany" value="${e(r.action)}" oninput="setRule(${sec.id},${z.id},${r.id},'action',this.value)"></div>
-          </div>
-          <div><label class="lbl" style="font-size:9px">Uwaga</label><input class="inp" style="font-size:12px" placeholder="np. Po 20 min braku ruchu — powrót do sensora" value="${e(r.note)}" oninput="setRule(${sec.id},${z.id},${r.id},'note',this.value)"></div>
-        </div>`).join('');
-
-      const cDotsH=COLS.map(cl=>`<div class="cdot${z.colorId===cl.id?' sel':''}" style="background:${cl.dot}" onclick="setZColor(${sec.id},${z.id},'${cl.id}')"></div>`).join('');
-      const ctrlH=['button','sensor','both'].map(v=>`<button class="ctrl-btn${z.controlType===v?' active':''}" onclick="setZCtrl(${sec.id},${z.id},'${v}')">${CTRL[v]}</button>`).join('');
-
-      const keyCount=(z.buttonKeys||[]).length;
-      return `<div class="zone-wrap" style="border-color:${c.border}">
-        <div class="zone-hdr" style="background:${c.bg}" onclick="toggleZone(${z.id})">
-          <div class="zone-hdr-l">
-            <div class="zdot" style="background:${c.dot}"></div>
-            <span class="zname" id="zname-${z.id}" style="color:${c.text}">${e(z.name)||'Strefa'}</span>
-            <span class="zpill" style="background:${c.dot}22;color:${c.text}">${CTRL[z.controlType]}</span>
-            ${keyCount?`<span class="zpill" style="background:${c.dot}22;color:${c.text}">K: ${(z.buttonKeys||[]).map(k=>`K${k.panelKey}`).join(', ')}</span>`:''}
-          </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button onclick="event.stopPropagation();delZone(${sec.id},${z.id})" class="btn btn-danger btn-sm" style="font-size:11px;padding:3px 9px">usuń</button>
-            <span style="color:#9ca3af;font-size:11px">▼</span>
-          </div>
-        </div>
-        <div class="zbody hidden" id="zbody-${z.id}">
-          <div class="grid2 field">
-            <div><label class="lbl">Nazwa strefy</label><input class="inp" value="${e(z.name)}" oninput="setZ(${sec.id},${z.id},'name',this.value);document.getElementById('zname-${z.id}').textContent=this.value||'Strefa'"></div>
-            <div><label class="lbl">Kolor</label><div class="color-row">${cDotsH}</div></div>
-          </div>
-          <div class="field"><label class="lbl">Opis strefy</label><textarea class="inp" rows="2" placeholder="np. Oświetlenie biurek przy oknie" oninput="setZ(${sec.id},${z.id},'description',this.value)">${e(z.description)}</textarea></div>
-          <div class="field"><label class="lbl">Typ sterowania</label><div class="ctrl-btns">${ctrlH}</div></div>
-          <div class="field">
-            <label class="lbl">Przypisane klawisze panelu</label>
-            ${keyCount
-              ? keysH
-              : `<p class="empty-msg">Brak — użyj pickera panelu powyżej aby przypisać klawisze</p>`}
-            ${keysH?`<div class="key-actions-list">${keysH}</div>`:''}
-          </div>
-          <div class="field" style="margin-bottom:0">
-            <div class="sub-hdr"><label class="lbl">Logika działania</label><button class="add-link" onclick="addRule(${sec.id},${z.id})">+ dodaj regułę</button></div>
-            ${rulesH||'<p class="empty-msg">Brak zdefiniowanej logiki</p>'}
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-
     div.innerHTML=`
       <div class="sec-hdr" onclick="toggleSection(${sec.id})">
         <div class="sec-hdr-l">
-          <div class="sec-icon">${e(sec.name).charAt(0)}</div>
+          <div class="sec-icon" id="secicon-${sec.id}">${e(sec.name).charAt(0)||'?'}</div>
           <span class="sec-name-txt" id="secname-${sec.id}">${e(sec.name)||'Sekcja'}</span>
-          <span class="sec-count">${totalZones} stref${totalZones===1?'a':totalZones<5?'y':''}</span>
+          <span class="sec-count" id="seccount-${sec.id}">${dc} urządz. · ${zc} stref</span>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button onclick="event.stopPropagation();delSection(${sec.id})" class="btn btn-danger btn-sm" style="font-size:11px">usuń sekcję</button>
           <span style="color:#9ca3af;font-size:12px">▼</span>
         </div>
       </div>
-      <div class="sec-body" id="sbody-${sec.id}">
-        <div class="field">
-          <label class="lbl">Nazwa sekcji / pomieszczenia</label>
-          <input class="inp" value="${e(sec.name)}" oninput="setSec(${sec.id},'name',this.value);document.getElementById('secname-${sec.id}').textContent=this.value||'Sekcja';document.querySelector('#sec-card-${sec.id} .sec-icon').textContent=this.value.charAt(0)||'?'">
+      <div class="sec-body hidden" id="sbody-${sec.id}">
+        <!-- TABY -->
+        <div class="sec-tabs">
+          <button class="sec-tab${sec.activeTab==='info'?' active':''}" data-sid="${sec.id}" data-tab="info" onclick="switchTab(${sec.id},'info')">Informacje</button>
+          <button class="sec-tab${sec.activeTab==='dev'?' active':''}" data-sid="${sec.id}" data-tab="dev" onclick="switchTab(${sec.id},'dev')">Urządzenia</button>
+          <button class="sec-tab${sec.activeTab==='zones'?' active':''}" data-sid="${sec.id}" data-tab="zones" onclick="switchTab(${sec.id},'zones')">Strefy</button>
         </div>
-        <div class="field">
-          <label class="lbl">Grafika rzutu / schematu (opcjonalna)</label>
-          <div class="img-drop" style="min-height:90px" onclick="document.getElementById('simg-inp-${sec.id}').click()" ondragover="event.preventDefault()" ondrop="(function(ev){ev.preventDefault();handleSecImgFile(${sec.id},ev.dataTransfer.files[0])})(event)">
-            <div class="img-ph" id="simg-ph-${sec.id}" ${sec.image?'style="display:none"':''}>
-              <div class="ic">🖼</div><p style="font-size:12px">Kliknij lub przeciągnij rzut / schemat</p>
-            </div>
-            <img id="simg-prev-${sec.id}" src="${sec.image||''}" ${sec.image?'':'class="hidden"'} style="width:100%;max-height:180px;object-fit:contain;background:#f9fafb;border-radius:8px">
+
+        <!-- TAB: INFORMACJE -->
+        <div class="sec-tab-panel${sec.activeTab==='info'?' active':''}" data-sid="${sec.id}" data-tab="info">
+          <div class="field">
+            <label class="lbl">Nazwa sekcji / pomieszczenia</label>
+            <input class="inp" value="${e(sec.name)}" oninput="setSec(${sec.id},'name',this.value);document.getElementById('secname-${sec.id}').textContent=this.value||'Sekcja';document.getElementById('secicon-${sec.id}').textContent=this.value.charAt(0)||'?'">
           </div>
-          <input type="file" id="simg-inp-${sec.id}" accept="image/*" class="hidden" onchange="handleSecImgFile(${sec.id},this.files[0])">
-          <button id="simg-rm-${sec.id}" class="btn btn-danger btn-sm ${sec.image?'':'hidden'}" onclick="removeSecImg(${sec.id})" style="margin-top:6px;font-size:11px">Usuń grafikę</button>
+          <div class="field">
+            <label class="lbl">Grafika rzutu / schematu <span style="font-weight:400">(opcjonalna)</span></label>
+            <div class="img-drop" style="min-height:90px" onclick="document.getElementById('simg-inp-${sec.id}').click()" ondragover="event.preventDefault()" ondrop="(function(ev){ev.preventDefault();handleSecImg(${sec.id},ev.dataTransfer.files[0])})(event)">
+              <div class="img-ph" id="simg-ph-${sec.id}" ${sec.image?'style="display:none"':''}><div class="ic">🖼</div><p>Kliknij lub przeciągnij rzut / schemat</p></div>
+              <img id="simg-prev-${sec.id}" src="${sec.image||''}" ${sec.image?'':'class="hidden"'} style="width:100%;max-height:180px;object-fit:contain;background:#f9fafb;border-radius:8px">
+            </div>
+            <input type="file" id="simg-inp-${sec.id}" accept="image/*" class="hidden" onchange="handleSecImg(${sec.id},this.files[0])">
+            <button id="simg-rm-${sec.id}" class="btn btn-danger btn-sm ${sec.image?'':'hidden'}" onclick="removeSecImg(${sec.id})" style="margin-top:6px;font-size:11px">Usuń grafikę</button>
+          </div>
         </div>
 
-        <div class="field">
-          <label class="lbl">Przypisanie klawiszy panelu do stref</label>
-          <div id="ppick-${sec.id}"></div>
+        <!-- TAB: URZĄDZENIA -->
+        <div class="sec-tab-panel${sec.activeTab==='dev'?' active':''}" data-sid="${sec.id}" data-tab="dev">
+          <div id="devlist-${sec.id}">
+            ${(sec.devices||[]).length
+              ? sec.devices.map(d=>renderDeviceCard(d)).join('')
+              : '<p class="empty-msg" style="padding:8px 0">Brak urządzeń — dodaj panel, tablet lub sensor</p>'}
+          </div>
+          <div style="display:flex;gap:7px;margin-top:8px">
+            <button class="btn btn-outline btn-sm" onclick="addDevice(${sec.id},'panel')">+ Panel</button>
+            <button class="btn btn-outline btn-sm" onclick="addDevice(${sec.id},'tablet')">+ Tablet</button>
+            <button class="btn btn-outline btn-sm" onclick="addDevice(${sec.id},'sensor')">+ Sensor</button>
+          </div>
         </div>
 
-        <div style="margin-bottom:8px">
-          <div class="sub-hdr" style="margin-bottom:8px">
-            <label class="lbl" style="margin:0">Strefy w sekcji</label>
+        <!-- TAB: STREFY -->
+        <div class="sec-tab-panel${sec.activeTab==='zones'?' active':''}" data-sid="${sec.id}" data-tab="zones">
+          <div id="zonelist-${sec.id}">
+            ${(sec.zones||[]).length
+              ? sec.zones.map(z=>renderZoneCard(z,sec.id)).join('')
+              : '<p class="empty-msg" style="padding:8px 0">Brak stref — dodaj strefę</p>'}
+          </div>
+          <div class="add-zone-row">
             <button class="add-link" onclick="addZone(${sec.id})">+ dodaj strefę</button>
           </div>
-          ${zonesHTML||'<p class="empty-msg" style="padding:8px 0">Brak stref</p>'}
         </div>
       </div>`;
-
     list.appendChild(div);
-    renderPanelPicker(sec.id);
   });
 }
 
-// ── LOGIC PREVIEW ──────────────────────────────────────────────────────────
-function renderLogic(){
-  const c=document.getElementById('logic-prev');c.innerHTML='';
-  sections.forEach(sec=>{
-    const sh=document.createElement('div');
-    sh.style.cssText='font-weight:700;font-size:13px;color:#111827;margin:10px 0 6px;padding-left:2px';
-    sh.textContent=sec.name;
-    c.appendChild(sh);
-    sec.zones.forEach(z=>{
-      const col=COL(z.colorId);
-      const rulesH=z.logicRules.length===0
-        ?'<p style="padding:6px 10px;font-size:11px;color:#d1d5db;font-style:italic">Brak reguł logiki</p>'
-        :z.logicRules.map((r,i)=>`
-          <div class="lp-rule">
-            <span class="lp-num">${i+1}.</span>
-            <div class="chips">
-              ${r.trigger?`<span class="chip">${e(r.trigger)}</span>`:''}
-              ${r.trigger&&r.action?`<span class="chip-arr">→</span>`:''}
-              ${r.action?`<span class="chip-res" style="background:${col.bg};color:${col.text}">${e(r.action)}</span>`:''}
-              ${r.note?`<span class="chip-note">${e(r.note)}</span>`:''}
-            </div>
-          </div>`).join('');
-      const div=document.createElement('div');
-      div.className='lp-zone';div.style.borderColor=col.border+'44';
-      div.innerHTML=`
-        <div class="lp-hdr" style="background:${col.bg}">
-          <div class="zdot" style="background:${col.dot}"></div>
-          <span style="font-weight:700;font-size:12px;color:${col.text}">${e(z.name)}</span>
-          <span style="font-size:11px;color:#6b7280;margin-left:4px">— ${e(z.description)||'brak opisu'}</span>
-        </div>
-        <div class="lp-body">${rulesH}</div>`;
-      c.appendChild(div);
-    });
-  });
+function refreshSecBadges(sid){
+  const s=sections.find(s=>s.id===sid);if(!s)return;
+  const el=document.getElementById('seccount-'+sid);
+  if(el)el.textContent=`${(s.devices||[]).length} urządz. · ${(s.zones||[]).length} stref`;
 }
 
-// ── MINI PREVIEW ────────────────────────────────────────────────────────────
+// ── PODGLĄD ───────────────────────────────────────────────────────────────────
 function renderPreview(){
   const title=document.getElementById('f-title').value;
   const subtitle=document.getElementById('f-subtitle').value;
@@ -465,14 +475,31 @@ function renderPreview(){
   let sectionsH='';
   sections.forEach(sec=>{
     const imgH=sec.image?`<div style="text-align:center;margin:8px 0 12px"><img src="${sec.image}" style="max-width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #f3f4f6"></div>`:'';
-    const btnH=btnImgB64?`<div style="text-align:center;margin:8px 0 12px"><img src="${btnImgB64}" style="max-height:100px;object-fit:contain;border-radius:6px;border:1px solid #f3f4f6"></div>`:'';
-    sectionsH+=`
-      <div style="margin-bottom:14px">
-        <div style="font-weight:700;font-size:12px;color:#111827;margin-bottom:8px">
-          <span style="background:#111827;color:#fff;border-radius:5px;padding:1px 7px;font-size:10px">${e(sec.name)}</span>
-        </div>
-        ${imgH}${btnH}
+    const devsH=(sec.devices||[]).map(d=>{
+      const lbls={panel:'Panel',tablet:'Tablet',sensor:'Sensor'};
+      const sub=d.type==='panel'?d.panelType:lbls[d.type];
+      return `<div style="font-size:12px;color:#374151;margin-left:10px;margin-bottom:2px">
+        · <strong>${e(d.name)||sub}</strong> <span style="font-size:10px;color:#9ca3af">[${sub}]</span>
+        ${d.type==='panel'&&d.keys?` — ${d.keys.filter(k=>k.name).length}/${d.keys.length} kl.`:''}
       </div>`;
+    }).join('');
+    const zonesH=(sec.zones||[]).map(z=>{
+      const c=COL(z.colorId);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-left:10px;margin-bottom:2px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${c.dot};flex-shrink:0"></div>
+        <span style="font-size:12px;font-weight:600;color:${c.text}">${e(z.name)}</span>
+        <span style="font-size:11px;color:#9ca3af">— ${e(z.description)||CTRL[z.controlType]}</span>
+      </div>`;
+    }).join('');
+
+    sectionsH+=`<div style="margin-bottom:14px">
+      <div style="font-weight:700;font-size:12px;color:#111827;margin-bottom:6px">
+        <span style="background:#111827;color:#fff;border-radius:5px;padding:1px 7px;font-size:10px">${e(sec.name)}</span>
+      </div>
+      ${imgH}
+      ${devsH}
+      ${zonesH}
+    </div>`;
   });
 
   document.getElementById('preview-out').innerHTML=`
@@ -482,12 +509,12 @@ function renderPreview(){
       <div class="pv-tags">${tagsH}</div>
     </div>
     <div class="card" style="padding:14px">
-      ${sectionsH}
+      ${sectionsH||'<p style="color:#d1d5db;font-size:13px">Brak sekcji — wróć do kroku 2</p>'}
       ${note?`<div class="note-box">${e(note)}</div>`:''}
     </div>`;
 }
 
-// ── BUILD HTML CONTENT ──────────────────────────────────────────────────────
+// ── BUILD HTML CONTENT (shared by HTML/PDF export) ──────────────────────────
 function buildHTMLContent(){
   const title=document.getElementById('f-title').value||'Instrukcja';
   const subtitle=document.getElementById('f-subtitle').value;
@@ -496,41 +523,53 @@ function buildHTMLContent(){
   const tagsH=tags.split(',').filter(Boolean)
     .map(t=>`<span style="font-size:10px;font-family:monospace;background:#1f2937!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#6ee7b7!important;padding:2px 9px;border-radius:4px;border:1px solid #374151">${e(t.trim())}</span>`).join('');
 
-  function flowChip(txt,bg,color){return`<span style="display:inline-block;font-size:11px;padding:4px 10px;border-radius:6px;background:${bg}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:${color}!important;font-weight:500">${e(txt)}</span>`;}
+  function flowChip(txt,bg,col){return`<span style="display:inline-block;font-size:11px;padding:4px 10px;border-radius:6px;background:${bg}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:${col}!important;font-weight:500">${e(txt)}</span>`;}
   function arrow(){return`<span style="font-size:13px;color:#9ca3af;margin:0 3px">→</span>`;}
 
   let sectionsDetailH='';
   sections.forEach(sec=>{
     const imgH=sec.image?`<div style="text-align:center;margin:14px 0"><img src="${sec.image}" style="max-height:200px;object-fit:contain;border-radius:10px;border:1px solid #e5e7eb"></div>`:'';
-    const btnInSecH=btnImgB64?`<div style="text-align:center;margin:0 0 16px"><img src="${btnImgB64}" style="max-height:180px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb"></div>`:'';
 
+    // Urządzenia
+    let devsH='';
+    (sec.devices||[]).forEach(d=>{
+      const lbls={panel:'Panel',tablet:'Tablet',sensor:'Sensor'};
+      const sub=d.type==='panel'?d.panelType:lbls[d.type];
+      devsH+=`<div style="border:1px solid #f3f4f6;border-radius:8px;overflow:hidden;margin-bottom:10px">
+        <div style="padding:7px 12px;background:#f9fafb;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:8px">
+          <span style="background:#e5e7eb;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${e(d.name)||sub}</span>
+          <span style="font-size:10px;color:#9ca3af">${sub}</span>
+        </div>`;
+      if(d.image&&d.type==='panel'){
+        devsH+=`<div style="text-align:center;padding:8px"><img src="${d.image}" style="max-height:120px;object-fit:contain;border-radius:6px"></div>`;
+      }
+      if(d.desc){devsH+=`<div style="padding:6px 12px;font-size:12px;color:#6b7280">${e(d.desc)}</div>`;}
+      if(d.type==='panel'&&d.keys&&d.keys.length){
+        devsH+=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;width:80px">Klawisz</th>
+            <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af">Nazwa</th>
+            <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;width:150px">Akcja</th>
+          </tr></thead><tbody>
+          ${d.keys.map(k=>`<tr>
+            <td style="padding:5px 8px;border-bottom:1px solid #f9fafb"><span style="background:#111827;color:#fff;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;font-family:monospace">K${k.num}</span></td>
+            <td style="padding:5px 8px;border-bottom:1px solid #f9fafb;color:#374151;font-weight:500">${e(k.name)||'—'}</td>
+            <td style="padding:5px 8px;border-bottom:1px solid #f9fafb;color:#6b7280">${e(k.action)}</td>
+          </tr>`).join('')}
+          </tbody></table>`;
+      }
+      if(d.type==='sensor'&&d.sensorDesc){devsH+=`<div style="padding:6px 12px;font-size:12px;color:#6b7280">${e(d.sensorDesc)}</div>`;}
+      if(d.type==='sensor'&&d.sensorImage){devsH+=`<div style="text-align:center;padding:8px"><img src="${d.sensorImage}" style="max-height:120px;object-fit:contain;border-radius:6px"></div>`;}
+      if(d.type==='tablet'&&d.image){devsH+=`<div style="text-align:center;padding:8px"><img src="${d.image}" style="max-height:120px;object-fit:contain;border-radius:6px"></div>`;}
+      devsH+=`</div>`;
+    });
+
+    // Strefy
     let zonesLogicH='';
-    sec.zones.forEach(z=>{
+    (sec.zones||[]).forEach(z=>{
       const c=COL(z.colorId);
       let inner='';
-      if(z.buttonKeys&&z.buttonKeys.length){
-        z.buttonKeys.forEach(k=>{
-          const acts=k.actions||[];
-          if(!acts.length)return;
-          inner+=`<div style="border:1px solid #f3f4f6;border-radius:8px;overflow:hidden;margin-bottom:10px">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
-              <code style="background:#e5e7eb;padding:2px 8px;border-radius:4px;font-size:11px;color:#374151;font-weight:600">K${k.panelKey||'?'} — ${e(k.label)||'Klawisz'}</code>
-            </div>
-            <table style="width:100%;border-collapse:collapse;font-size:12px">
-              <thead><tr>
-                <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af;width:200px">Typ naciśnięcia</th>
-                <th style="text-align:left;padding:5px 8px;background:#fff;font-size:9px;font-weight:600;text-transform:uppercase;color:#9ca3af">Akcja</th>
-              </tr></thead><tbody>
-              ${acts.map(a=>`<tr>
-                <td style="padding:5px 8px;border-bottom:1px solid #f9fafb">
-                  <span style="display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:4px;background:${ACTION_COLORS[a.type]}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:${ACTION_TEXT[a.type]}!important">${ACTION_LABELS_E[a.type]||a.type}</span>
-                </td>
-                <td style="padding:5px 8px;border-bottom:1px solid #f9fafb;color:#374151;font-weight:500">${e(a.func)}</td>
-              </tr>`).join('')}
-              </tbody></table></div>`;
-        });
-      }
-      if(z.logicRules.length){
+      if(z.logicRules&&z.logicRules.length){
         z.logicRules.forEach((r,i)=>{
           const parts=[];
           if(r.trigger)parts.push(flowChip(r.trigger,'#f3f4f6','#374151'));
@@ -541,62 +580,64 @@ function buildHTMLContent(){
             <span style="font-size:11px;color:#d1d5db;min-width:18px;font-family:monospace">${i+1}.</span>${parts.join('')}</div>`;
         });
       }
-      if(!inner)return;
+      if(!inner&&(!z.description))return;
       zonesLogicH+=`<div style="border-radius:9px;border:1px solid ${c.border}44;overflow:hidden;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:${c.bg}!important;-webkit-print-color-adjust:exact;print-color-adjust:exact">
           <div style="width:9px;height:9px;border-radius:50%;background:${c.dot};flex-shrink:0"></div>
           <span style="font-weight:700;font-size:12px;color:${c.text}">${e(z.name)}</span>
-          <span style="font-size:11px;color:#6b7280">— ${e(z.description)||'brak opisu'}</span>
+          <span style="font-size:11px;color:#6b7280">— ${e(z.description)||CTRL[z.controlType]}</span>
         </div>
-        <div style="padding:10px 12px;background:#fff">${inner}</div>
+        ${inner?`<div style="padding:10px 12px;background:#fff">${inner}</div>`:''}
       </div>`;
     });
 
     sectionsDetailH+=`
-      <div style="margin-bottom:24px">
+      <div style="margin-bottom:28px">
         <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:12px">
           <span style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff!important;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700">${e(sec.name)}</span>
         </div>
-        ${imgH}${btnInSecH}
-        ${zonesLogicH?`<div style="margin-top:12px">${zonesLogicH}</div>`:''}
+        ${imgH}
+        ${devsH?`<div style="margin-bottom:12px">${devsH}</div>`:''}
+        ${zonesLogicH?`<div>${zonesLogicH}</div>`:''}
       </div>`;
   });
 
   const noteH=note?`<div style="background:#fffbeb!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:12px;color:#78350f;line-height:1.6;margin-top:8px">
     <strong style="display:block;margin-bottom:3px">ℹ Uwaga</strong>${e(note)}</div>`:'';
 
-  return {title,subtitle,tagsH,sectionsDetailH,noteH};
+  return{title,subtitle,tagsH,sectionsDetailH,noteH};
 }
 
-// ── EXPORT HTML ─────────────────────────────────────────────────────────────
+// ── EXPORT HTML ────────────────────────────────────────────────────────────────
 function exportHTML(){
-  const {title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
+  const{title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
   const html=`<!DOCTYPE html>
 <html lang="pl"><head><meta charset="UTF-8"><title>${e(title)}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:'DM Sans',sans-serif;background:#f3f4f6;color:#111827}.page{max-width:800px;margin:0 auto;padding:32px 24px}@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{background:#fff}.page{padding:0}@page{margin:14mm;size:A4}}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:'DM Sans',sans-serif;background:#f3f4f6;color:#111827}.page{max-width:800px;margin:0 auto;padding:32px 24px}@media print{body{background:#fff}.page{padding:0}@page{margin:14mm;size:A4}}</style>
 </head><body><div class="page">
 <div style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
-  <div style="font-size:20px;font-weight:700;color:#fff!important">${e(title)}</div>
-  ${subtitle?`<div style="font-size:12px;color:#9ca3af!important;margin-top:4px">${e(subtitle)}</div>`:''}
+  <div style="font-size:20px;font-weight:700">${e(title)}</div>
+  ${subtitle?`<div style="font-size:12px;color:#9ca3af;margin-top:4px">${e(subtitle)}</div>`:''}
   <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH}</div>
 </div>
 ${sectionsDetailH}${noteH}
 </div></body></html>`;
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='instrukcja.html';a.click();
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  a.download='instrukcja.html';a.click();
   closeExport();
 }
 
-// ── EXPORT PDF ──────────────────────────────────────────────────────────────
+// ── EXPORT PDF ─────────────────────────────────────────────────────────────────
 function exportPDF(){
-  const {title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
+  const{title,subtitle,tagsH,sectionsDetailH,noteH}=buildHTMLContent();
   const win=window.open('','_blank','width=900,height=700');
   if(!win){alert('Przeglądarka zablokowała popup. Zezwól na popupy i spróbuj ponownie.');return;}
   win.document.write(`<!DOCTYPE html>
 <html lang="pl"><head><meta charset="UTF-8"><title>${e(title)}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}body{font-family:'DM Sans',system-ui,sans-serif;background:#fff;color:#111827}.page{max-width:800px;margin:0 auto;padding:28px 24px}.no-print{display:block}@media print{.no-print{display:none!important}.page{padding:0;max-width:100%}@page{margin:12mm 10mm;size:A4}}</style>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:'DM Sans',system-ui,sans-serif;background:#fff;color:#111827}.page{max-width:800px;margin:0 auto;padding:28px 24px}.no-print{display:block}@media print{.no-print{display:none!important}.page{padding:0;max-width:100%}@page{margin:12mm 10mm;size:A4}}</style>
 </head><body>
 <div class="no-print" style="background:#111827;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;border-radius:8px;max-width:800px;margin:0 auto 20px">
   <span style="font-size:13px">Kliknij "Drukuj" i wybierz "Zapisz jako PDF" — zaznacz opcję <strong>Grafika w tle</strong></span>
@@ -604,8 +645,8 @@ function exportPDF(){
 </div>
 <div class="page">
 <div style="background:#111827!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:22px">
-  <div style="font-size:20px;font-weight:700;color:#fff!important">${e(title)}</div>
-  ${subtitle?`<div style="font-size:12px;color:#9ca3af!important;margin-top:4px">${e(subtitle)}</div>`:''}
+  <div style="font-size:20px;font-weight:700">${e(title)}</div>
+  ${subtitle?`<div style="font-size:12px;color:#9ca3af;margin-top:4px">${e(subtitle)}</div>`:''}
   <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">${tagsH}</div>
 </div>
 ${sectionsDetailH}${noteH}
@@ -616,95 +657,98 @@ ${sectionsDetailH}${noteH}
   closeExport();
 }
 
-// ── EXPORT DOCX ─────────────────────────────────────────────────────────────
+// ── EXPORT DOCX ────────────────────────────────────────────────────────────────
 async function exportDOCX(){
   const btn=document.getElementById('btn-exp-docx');
-  btn.disabled=true;
-  btn.textContent='⏳ Generuję...';
-
-  try {
-    const {Document,Packer,Paragraph,TextRun,HeadingLevel,ImageRun,
-           AlignmentType,BorderStyle,Table,TableRow,TableCell,WidthType,
-           ShadingType,Header,Footer,PageNumber}=window.docx;
+  btn.disabled=true;btn.textContent='⏳ Generuję...';
+  try{
+    const{Document,Packer,Paragraph,TextRun,HeadingLevel,ImageRun,
+          AlignmentType,BorderStyle,Table,TableRow,TableCell,WidthType,
+          ShadingType}=window.docx;
 
     const title=document.getElementById('f-title').value||'Instrukcja';
     const subtitle=document.getElementById('f-subtitle').value;
     const tags=document.getElementById('f-tags').value;
     const note=document.getElementById('f-note').value;
-
     const children=[];
 
-    // ── Title ──
+    // Tytuł
     children.push(new Paragraph({
       children:[new TextRun({text:title,bold:true,size:40,color:'FFFFFF',font:'DM Sans'})],
-      heading:HeadingLevel.TITLE,
       shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
       spacing:{before:0,after:200},
     }));
-    if(subtitle){
-      children.push(new Paragraph({
-        children:[new TextRun({text:subtitle,size:22,color:'9CA3AF',font:'DM Sans'})],
-        shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
-        spacing:{before:0,after:100},
-      }));
-    }
-    if(tags){
-      children.push(new Paragraph({
-        children:[new TextRun({text:'Tagi: '+tags,size:18,color:'6EE7B7',font:'Courier New'})],
-        shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
-        spacing:{before:0,after:400},
-      }));
-    }
+    if(subtitle)children.push(new Paragraph({
+      children:[new TextRun({text:subtitle,size:22,color:'9CA3AF',font:'DM Sans'})],
+      shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
+      spacing:{before:0,after:100},
+    }));
+    if(tags)children.push(new Paragraph({
+      children:[new TextRun({text:'Tagi: '+tags,size:18,color:'6EE7B7',font:'Courier New'})],
+      shading:{type:ShadingType.SOLID,color:'111827',fill:'111827'},
+      spacing:{before:0,after:400},
+    }));
 
-    // ── Button image ──
-    if(btnImgB64){
-      children.push(new Paragraph({
-        children:[new TextRun({text:'Przycisk ścienny',bold:true,size:24,color:'111827'})],
-        spacing:{before:200,after:100},
-      }));
-      try {
-        const imgData=btnImgB64.split(',')[1];
-        const byteStr=atob(imgData);
-        const arr=new Uint8Array(byteStr.length);
-        for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
-        children.push(new Paragraph({
-          children:[new ImageRun({data:arr,transformation:{width:200,height:150},type:'png'})],
-          spacing:{before:100,after:300},
-        }));
-      } catch(imgErr){console.warn('Button image error:',imgErr);}
-    }
-
-    // ── Sections ──
     for(const sec of sections){
-      // Section heading
+      // Nagłówek sekcji
       children.push(new Paragraph({
         children:[new TextRun({text:sec.name,bold:true,size:28,color:'FFFFFF',font:'DM Sans'})],
         shading:{type:ShadingType.SOLID,color:'1F2937',fill:'1F2937'},
         spacing:{before:300,after:100},
       }));
-
-      // Section image
+      // Obraz sekcji
       if(sec.image){
-        try {
+        try{
           const imgData=sec.image.split(',')[1];
-          const byteStr=atob(imgData);
-          const arr=new Uint8Array(byteStr.length);
+          const byteStr=atob(imgData);const arr=new Uint8Array(byteStr.length);
           for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
-          children.push(new Paragraph({
-            children:[new ImageRun({data:arr,transformation:{width:400,height:250},type:'png'})],
-            alignment:AlignmentType.CENTER,
-            spacing:{before:100,after:200},
-          }));
-        } catch(imgErr){console.warn('Section image error:',imgErr);}
+          children.push(new Paragraph({children:[new ImageRun({data:arr,transformation:{width:400,height:250},type:'png'})],alignment:AlignmentType.CENTER,spacing:{before:100,after:200}}));
+        }catch(ie){console.warn(ie);}
       }
 
-      // ── Zones ──
-      for(const z of sec.zones){
+      // Urządzenia
+      for(const d of (sec.devices||[])){
+        const lbls={panel:'Panel',tablet:'Tablet',sensor:'Sensor'};
+        const sub=d.type==='panel'?d.panelType:lbls[d.type];
+        children.push(new Paragraph({
+          children:[new TextRun({text:`${sub}: ${d.name||sub}`,bold:true,size:22,color:'374151'})],
+          spacing:{before:160,after:60},
+        }));
+        // Zdjęcie urządzenia
+        const imgSrc=d.type==='sensor'?d.sensorImage:d.image;
+        if(imgSrc){
+          try{
+            const imgData=imgSrc.split(',')[1];
+            const byteStr=atob(imgData);const arr=new Uint8Array(byteStr.length);
+            for(let i=0;i<byteStr.length;i++)arr[i]=byteStr.charCodeAt(i);
+            children.push(new Paragraph({children:[new ImageRun({data:arr,transformation:{width:200,height:130},type:'png'})],spacing:{before:40,after:80}}));
+          }catch(ie){console.warn(ie);}
+        }
+        // Tabela klawiszy dla panelu
+        if(d.type==='panel'&&d.keys&&d.keys.length){
+          const headerRow=new TableRow({children:[
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'KLAWISZ',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:15,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'NAZWA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:50,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'AKCJA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:35,type:WidthType.PERCENTAGE}}),
+          ]});
+          const dataRows=d.keys.map(k=>new TableRow({children:[
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:'K'+k.num,size:18,bold:true,font:'Courier New'})]})] ,width:{size:15,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:k.name||'—',size:18,color:'374151'})]})] ,width:{size:50,type:WidthType.PERCENTAGE}}),
+            new TableCell({children:[new Paragraph({children:[new TextRun({text:k.action||'',size:18,color:'6B7280'})]})] ,width:{size:35,type:WidthType.PERCENTAGE}}),
+          ]}));
+          children.push(new Table({rows:[headerRow,...dataRows],width:{size:100,type:WidthType.PERCENTAGE}}));
+          children.push(new Paragraph({spacing:{before:100,after:0}}));
+        }
+        if(d.desc||d.sensorDesc){
+          children.push(new Paragraph({children:[new TextRun({text:d.desc||d.sensorDesc||'',size:18,color:'6B7280'})],spacing:{before:40,after:80}}));
+        }
+      }
+
+      // Strefy
+      for(const z of (sec.zones||[])){
         const c=COL(z.colorId);
         const hexColor=c.text.replace('#','');
         const hexBg=c.bg.replace('#','');
-
-        // Zone name row
         children.push(new Paragraph({
           children:[
             new TextRun({text:'● ',bold:true,size:22,color:c.dot.replace('#','')}),
@@ -715,48 +759,13 @@ async function exportDOCX(){
           spacing:{before:200,after:80},
           border:{bottom:{style:BorderStyle.SINGLE,size:1,color:'E5E7EB'}},
         }));
-
-        // Button keys table
-        if(z.buttonKeys&&z.buttonKeys.length){
-          // Header row
-          const headerRow=new TableRow({children:[
-            new TableCell({children:[new Paragraph({children:[new TextRun({text:'KLAWISZ',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:15,type:WidthType.PERCENTAGE}}),
-            new TableCell({children:[new Paragraph({children:[new TextRun({text:'TYP NACIŚNIĘCIA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:30,type:WidthType.PERCENTAGE}}),
-            new TableCell({children:[new Paragraph({children:[new TextRun({text:'AKCJA',bold:true,size:16,color:'9CA3AF'})]})],shading:{type:ShadingType.SOLID,color:'F9FAFB',fill:'F9FAFB'},width:{size:55,type:WidthType.PERCENTAGE}}),
-          ]});
-
-          const dataRows=[];
-          z.buttonKeys.forEach(k=>{
-            (k.actions||[]).forEach((a,ai)=>{
-              const labelMap={short1:'Krótkie naciśnięcie',long1:'Długie przytrzymanie',long2:'2× długie przytrzymanie',short2:'2× krótkie naciśnięcie'};
-              dataRows.push(new TableRow({children:[
-                new TableCell({children:[new Paragraph({children:[new TextRun({text:ai===0?('K'+(k.panelKey||'?')+' — '+(k.label||'')):'',size:18,bold:ai===0})]})]
-                  ,width:{size:15,type:WidthType.PERCENTAGE}}),
-                new TableCell({children:[new Paragraph({children:[new TextRun({text:labelMap[a.type]||a.type,size:18,color:'374151'})]})]
-                  ,width:{size:30,type:WidthType.PERCENTAGE}}),
-                new TableCell({children:[new Paragraph({children:[new TextRun({text:a.func||'',size:18,color:'111827',bold:true})]})]
-                  ,width:{size:55,type:WidthType.PERCENTAGE}}),
-              ]}));
-            });
-          });
-
-          if(dataRows.length){
-            children.push(new Table({rows:[headerRow,...dataRows],width:{size:100,type:WidthType.PERCENTAGE}}));
-            children.push(new Paragraph({spacing:{before:100,after:0}}));
-          }
-        }
-
-        // Logic rules
         if(z.logicRules&&z.logicRules.length){
-          children.push(new Paragraph({
-            children:[new TextRun({text:'Logika działania:',bold:true,size:20,color:'374151'})],
-            spacing:{before:160,after:60},
-          }));
+          children.push(new Paragraph({children:[new TextRun({text:'Logika działania:',bold:true,size:20,color:'374151'})],spacing:{before:120,after:40}}));
           z.logicRules.forEach((r,i)=>{
             const parts=[];
-            if(r.trigger) parts.push(r.trigger);
-            if(r.action)  parts.push('→ '+r.action);
-            if(r.note)    parts.push('('+r.note+')');
+            if(r.trigger)parts.push(r.trigger);
+            if(r.action)parts.push('→ '+r.action);
+            if(r.note)parts.push('('+r.note+')');
             children.push(new Paragraph({
               children:[
                 new TextRun({text:`${i+1}.  `,size:18,color:'9CA3AF',font:'Courier New'}),
@@ -766,12 +775,10 @@ async function exportDOCX(){
             }));
           });
         }
-
-        children.push(new Paragraph({spacing:{before:120,after:0}}));
+        children.push(new Paragraph({spacing:{before:100,after:0}}));
       }
     }
 
-    // ── Note ──
     if(note){
       children.push(new Paragraph({
         children:[new TextRun({text:'ℹ Uwaga',bold:true,size:20,color:'78350F'})],
@@ -786,39 +793,24 @@ async function exportDOCX(){
       }));
     }
 
-    const doc=new Document({
-      creator:'Kreator Instrukcji — Vertex',
-      title,
-      description:subtitle,
-      sections:[{
-        properties:{},
-        children,
-      }],
-    });
-
+    const doc=new Document({creator:'Kreator Instrukcji — Vertex',title,description:subtitle,sections:[{properties:{},children}]});
     const blob=await Packer.toBlob(doc);
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
     a.download='instrukcja.docx';
     a.click();
     closeExport();
-
-  } catch(err){
+  }catch(err){
     alert('Błąd generowania DOCX: '+err.message);
     console.error(err);
   }
   btn.disabled=false;
-  btn.textContent='📄 Pobierz DOCX (Word)';
+  btn.textContent='📄 Pobierz DOCX (Word — edytowalny)';
 }
 
 function openExport(){document.getElementById('export-modal').classList.remove('hidden');}
 function closeExport(){document.getElementById('export-modal').classList.add('hidden');}
 
-// ── PAGE 1 INIT ──────────────────────────────────────────────────────────────
-function initPage1(){
-  renderPanelTypeSelector();
-}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
+// ── INIT ──────────────────────────────────────────────────────────────────────
 renderSteps();
 renderSections();
