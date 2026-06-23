@@ -1,4 +1,6 @@
-/* Układ 2 kolumn */
+/* ==========================================
+   UKŁAD 2 KOLUMN
+========================================== */
 #app {
   display: flex;
   gap: 25px;
@@ -8,7 +10,9 @@
   font-family: "Segoe UI", Arial, sans-serif;
 }
 
-/* Lewa kolumna – edytor */
+/* ==========================================
+   LEWA KOLUMNA – EDYTOR
+========================================== */
 #editor {
   width: 40%;
   background: #ffffff;
@@ -56,19 +60,77 @@
 #editor button:hover {
   background: #1f3a6b;
 }
-/* Kroki */
+
+/* Wskazówka drag&drop */
+.hint {
+  font-size: 13px;
+  color: #888;
+  margin: 4px 0 8px 0;
+  font-style: italic;
+}
+
+/* Grupa przycisków eksportu */
+.buttonGroup {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.buttonGroup button {
+  margin-top: 0;
+  flex: 1;
+}
+
+/* Przycisk niebezpieczny – wyczyść */
+.btnDanger {
+  background: #c0392b !important;
+  width: 100%;
+  margin-top: 15px !important;
+}
+
+.btnDanger:hover {
+  background: #96281b !important;
+}
+
+/* ==========================================
+   KROKI
+========================================== */
 .stepItem {
   background: #f7f7f7;
   padding: 15px;
   border-radius: 10px;
   border: 1px solid #ddd;
   margin-top: 15px;
+  cursor: grab;
+  transition: box-shadow 0.15s, opacity 0.15s;
+}
+
+/* Drag & drop – wizualne wskazówki */
+.stepItem.dragging {
+  opacity: 0.5;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.stepItem.drag-over {
+  border: 2px dashed #2a4d8f;
+  background: #eef2ff;
 }
 
 .stepHeader {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 10px;
+  align-items: center;
+}
+
+/* Numer kroku */
+.stepNumber {
+  font-weight: 700;
+  color: #2a4d8f;
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 55px;
 }
 
 .stepInput {
@@ -86,6 +148,7 @@
   border: 1px solid #bbb;
   font-size: 14px;
   resize: vertical;
+  box-sizing: border-box;
 }
 
 .stepHeader button {
@@ -95,13 +158,16 @@
   padding: 6px 10px;
   cursor: pointer;
   border: none;
+  flex-shrink: 0;
 }
 
 .stepHeader button:hover {
   background: #ccc;
 }
 
-/* Zdjęcia */
+/* ==========================================
+   ZDJĘCIA W KROKACH
+========================================== */
 .stepImages img {
   max-width: 100%;
   margin-top: 10px;
@@ -115,147 +181,158 @@
   margin-top: 10px;
 }
 
-.stepImages input {
+.stepImages input[type="text"],
+.stepImages textarea {
   width: 100%;
   margin-top: 5px;
+  padding: 7px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  font-size: 13px;
+  box-sizing: border-box;
 }
 
-/* Minimalistyczne ➖ ➕ */
+/* Suwak rozmiaru */
 .imageControls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.sizeLabel {
+  font-size: 12px;
+  color: #555;
+  white-space: nowrap;
+}
+
+.imageSizeRange {
+  flex: 1;
+  min-width: 80px;
+  cursor: pointer;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  margin-top: 0 !important;
 }
 
 .imageSizeValue {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  font-size: 12px;
+  font-weight: bold;
+  color: #2a4d8f;
+  min-width: 40px;
+  text-align: right;
 }
 
-.imageControls button {
-  background: #2a4d8f;
+.imageBlock button {
+  margin-top: 8px;
+  background: #c0392b;
   color: white;
   border: none;
-  padding: 4px 10px;
   border-radius: 6px;
+  padding: 5px 10px;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+  font-size: 13px;
 }
 
-.imageControls button:hover {
-  background: #1f3a6b;
+.imageBlock button:hover {
+  background: #96281b;
 }
-/* PODGLĄD */
+
+/* ==========================================
+   PRAWA KOLUMNA – PODGLĄD
+========================================== */
 #preview {
-  width: 60%;
+  flex: 1;
   background: #ffffff;
   padding: 25px;
   border-radius: 12px;
   border: 1px solid #dcdcdc;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  min-width: 0;
 }
 
-#output ol li {
-  font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 15px;
-}
-
-#output .stepLongTextPreview {
-  margin: 8px 0 12px 0;
-  font-size: 15px;
-  color: #444;
-  font-weight: 400;
-  line-height: 1.4;
-}
-
-#output .imagePreview img {
-  margin-top: 4px;
-  border-radius: 6px;
-  max-height: 200mm;
-  object-fit: contain;
-}
-
-#output .imagePreview p {
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
-  font-weight: 400;
-}
-
-#output h3 {
-  margin-top: 30px;
+#preview h2 {
+  margin-top: 0;
   font-size: 20px;
   color: #2a4d8f;
 }
 
-/* PDF button */
-#exportPDF {
-  margin-top: 20px;
-  padding: 12px 18px;
-  background: #1f7a1f;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
-}
-
-#exportPDF:hover {
-  background: #145214;
-}
-
-/* PDF - zapobiegaj przecinaniu elementów między stronami */
-#output .imagePreview {
-  page-break-inside: avoid;
-  break-inside: avoid;
-  margin-bottom: 8px;
-}
-
-#output ol li {
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
-
 #output {
-  background: #ffffff;
-  color: #000000;
-}
-
-/* Pole tekstowe po zdjęciu - edytor */
-.afterImageText {
-  width: 100%;
-  margin-top: 6px;
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
+  font-family: "Segoe UI", Arial, sans-serif;
   font-size: 14px;
-  box-sizing: border-box;
-  resize: vertical;
 }
 
-/* Pole tekstowe po zdjęciu - podgląd/PDF */
-#output .afterImageTextPreview {
-  margin-top: 6px;
+#output h1 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+#output ol {
+  padding-left: 20px;
+}
+
+#output li {
   margin-bottom: 8px;
-  font-size: 15px;
-  color: #333;
-  line-height: 1.4;
 }
 
-#exportDOCX {
-  margin-top: 10px;
-  padding: 12px 18px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 15px;
-  width: 100%;
+/* Podgląd tekstu po kroku */
+.stepLongTextPreview {
+  font-size: 13px;
+  color: #555;
+  margin: 4px 0 8px 20px;
+  line-height: 1.5;
 }
-#exportDOCX:hover { background: #1d4ed8; }
-#exportDOCX:disabled { background: #93c5fd; cursor: not-allowed; }
+
+/* Blok ze zdjęciem – nie łam strony przy druku */
+.stepBlock {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Zdjęcie w podglądzie */
+.imagePreview {
+  margin: 10px 0 10px 20px;
+}
+
+.imagePreview img {
+  display: block;
+  border-radius: 6px;
+  max-width: 100%;
+}
+
+.fotCaption {
+  font-size: 12px;
+  color: #777;
+  font-style: italic;
+  margin: 4px 0 0 0;
+}
+
+.afterImageTextPreview {
+  font-size: 13px;
+  color: #555;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* Zakończenie instrukcji */
+.ending {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+  font-style: italic;
+  color: #555;
+}
+
+/* ==========================================
+   RESPONSYWNOŚĆ
+========================================== */
+@media (max-width: 900px) {
+  #app {
+    flex-direction: column;
+  }
+  #editor {
+    width: 100%;
+  }
+}
