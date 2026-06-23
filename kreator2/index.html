@@ -6,7 +6,6 @@
   <link rel="stylesheet" href="style.css">
 
   <!-- PDF export -->
-  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
@@ -18,7 +17,7 @@
 
   <!-- LEWA KOLUMNA – EDYTOR -->
   <div id="editor">
-    <h2>Edytor instrukcji_v16</h2>
+    <h2>Edytor instrukcji_v17</h2>
 
     <label for="title">Tytuł instrukcji:</label>
     <input type="text" id="title" placeholder="Np. Adresowanie urządzeń DALI">
@@ -27,6 +26,7 @@
     <textarea id="description" placeholder="Krótki opis instrukcji..."></textarea>
 
     <h3>Kroki</h3>
+    <p class="hint">💡 Przeciągaj kroki, aby zmieniać ich kolejność.</p>
     <div id="stepsContainer"></div>
     <button id="addStep">➕ Dodaj krok</button>
 
@@ -43,15 +43,20 @@
 
     <h3>Szablon</h3>
     <select id="templateSelect">
-      <option value="default">Domyślny</option>
-      <option value="tech">Techniczny</option>
-      <option value="dali">DALI</option>
-      <option value="ikea">IKEA‑style</option>
+      <option value="default">Domyślny (niebieski)</option>
+      <option value="tech">Techniczny (monochromatyczny)</option>
+      <option value="dali">DALI (pomarańczowy)</option>
+      <option value="ikea">IKEA-style (niebieski + żółty)</option>
     </select>
 
-    <button id="exportPDF">Eksportuj do PDF</button>
-    <button id="exportDOCX">📄 Eksportuj do DOCX (Word)</button>
+    <div class="buttonGroup">
+      <button id="exportPDF">📄 Eksportuj do PDF</button>
+      <button id="exportDOCX">📄 Eksportuj do DOCX (Word)</button>
+    </div>
+
+    <button id="clearState" class="btnDanger">🗑 Wyczyść instrukcję</button>
   </div>
+
   <!-- PRAWA KOLUMNA – PODGLĄD -->
   <div id="preview">
     <h2>Podgląd instrukcji</h2>
