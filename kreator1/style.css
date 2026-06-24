@@ -541,3 +541,24 @@ RESPONSIVE
   #topbar-actions { gap: 6px; }
   .step-controls { gap: 2px; }
 }
+
+
+/* Dolny przycisk "Dodaj krok" */
+#addStepBottom {
+  margin-top: 12px;
+}
+
+.btn-add-bottom {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 13px;
+  border-style: dashed;
+  border-width: 2px;
+  opacity: 0.85;
+  transition: opacity .15s, background .15s;
+}
+.btn-add-bottom:hover {
+  opacity: 1;
+  background: #dbeafe;
+}
