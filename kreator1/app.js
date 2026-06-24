@@ -340,42 +340,182 @@ EKSPORT PDF
 ========================================== */
 async function exportPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const previewEl = document.getElementById('previewDoc');
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-  try {
-    const canvas = await html2canvas(previewEl, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL('image/png');
-    const pageW = doc.internal.pageSize.getWidth();
-    const pageH = doc.internal.pageSize.getHeight();
-    const imgW  = pageW - 20;
-    const imgH  = imgW * canvas.height / canvas.width;
+  const PW = 210, PH = 297, ML = 18, MR = 18, MT = 20, MB = 18;
+  const CW = PW - ML - MR;
+  let y = MT;
 
-    if (imgH <= pageH - 20) {
-      doc.addImage(imgData, 'PNG', 10, 10, imgW, imgH);
-    } else {
-      const totalPages = Math.ceil(imgH / (pageH - 20));
-      for (let p = 0; p < totalPages; p++) {
-        if (p > 0) doc.addPage();
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width  = canvas.width;
-        const slicePx = (pageH - 20) * canvas.width / imgW;
-        sliceCanvas.height = slicePx;
-        const ctx = sliceCanvas.getContext('2d');
-        ctx.drawImage(canvas, 0, p * slicePx, canvas.width, slicePx, 0, 0, canvas.width, slicePx);
-        doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 10, 10, imgW, pageH - 20);
-      }
+  const title    = val('docTitle')  || 'Instrukcja';
+  const desc     = val('docDesc');
+  const ending   = val('docEnding');
+  const prefix   = val('photoPrefix') || 'Fot.';
+  const tplKey   = val('templateSelect') || 'default';
+  const tpl      = TEMPLATES[tplKey] || TEMPLATES.default;
+
+  // Kolor akcentu z hex na RGB
+  function hexRGB(hex) {
+    const r = parseInt(hex.slice(1,3),16);
+    const g = parseInt(hex.slice(3,5),16);
+    const b = parseInt(hex.slice(5,7),16);
+    return [r,g,b];
+  }
+  const ACCENT = hexRGB(tpl.accent);
+  const WHITE  = [255,255,255];
+  const LIGHT  = [248,250,252];
+  const BORDER = [229,231,235];
+  const DARK   = [17,24,39];
+  const MUTED  = [107,114,128];
+  const GREEN  = [22,163,74];
+  const GLIGHT = [240,253,244];
+
+  function checkPage(needed) {
+    if (y + needed > PH - MB) { doc.addPage(); y = MT; }
+  }
+
+  function safeText(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/Ą/g,'A').replace(/ą/g,'a')
+      .replace(/Ć/g,'C').replace(/ć/g,'c')
+      .replace(/Ę/g,'E').replace(/ę/g,'e')
+      .replace(/Ł/g,'L').replace(/ł/g,'l')
+      .replace(/Ń/g,'N').replace(/ń/g,'n')
+      .replace(/Ó/g,'O').replace(/ó/g,'o')
+      .replace(/Ś/g,'S').replace(/ś/g,'s')
+      .replace(/Ź/g,'Z').replace(/ź/g,'z')
+      .replace(/Ż/g,'Z').replace(/ż/g,'z')
+      .replace(/[^ -]/g,'?');
+  }
+
+  function wrap(text, maxW, fs) {
+    doc.setFontSize(fs);
+    return doc.splitTextToSize(safeText(text), maxW);
+  }
+
+  let photoCounter = 0;
+
+  // === NAGLOWEK ===
+  doc.setFillColor(...ACCENT);
+  doc.rect(ML, y, CW, 16, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...WHITE);
+  doc.text(safeText(title), ML + 4, y + 7);
+  if (desc) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(wrap(desc, CW - 8, 9)[0], ML + 4, y + 13);
+  }
+  y += 20;
+
+  // === KROKI ===
+  steps.forEach((step, idx) => {
+    const stepTitle = safeText(step.text || '(bez tytulu)');
+    const titleLines = wrap(stepTitle, CW - 16, 11);
+    checkPage(titleLines.length * 6 + 10);
+
+    // Numer + tytul
+    doc.setFillColor(...ACCENT);
+    doc.circle(ML + 4, y + 4.5, 4.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...WHITE);
+    doc.text(String(idx + 1), ML + 4, y + 5.5, { align: 'center' });
+    doc.setTextColor(...DARK);
+    doc.setFontSize(11);
+    doc.text(titleLines[0], ML + 12, y + 5.5);
+    if (titleLines.length > 1) {
+      titleLines.slice(1).forEach((line, li) => {
+        doc.text(line, ML + 12, y + 5.5 + (li + 1) * 6);
+      });
+    }
+    y += titleLines.length * 6 + 4;
+
+    // Dlugi opis
+    if (step.longText) {
+      const ltLines = wrap(step.longText, CW - 14, 9);
+      checkPage(ltLines.length * 5 + 4);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(75, 85, 99);
+      doc.text(ltLines, ML + 12, y);
+      y += ltLines.length * 5 + 4;
     }
 
-    doc.save((val('docTitle') || 'instrukcja').replace(/[^a-zA-Z0-9_-]/g, '_') + '.pdf');
-  } catch (err) {
-    alert('Błąd eksportu PDF: ' + err.message);
+    // Zdjecia
+    step.images.forEach(img => {
+      if (!img.src) return;
+      photoCounter++;
+      try {
+        const ip = doc.getImageProperties(img.src);
+        const maxW = CW * (img.size / 100) - 12;
+        const imgW = Math.min(maxW, CW - 12);
+        const imgH = imgW * ip.height / ip.width;
+        checkPage(imgH + 14);
+        doc.addImage(img.src, ip.fileType || 'JPEG', ML + 12, y, imgW, imgH);
+        y += imgH + 3;
+        if (img.caption) {
+          const capLine = safeText(prefix + ' ' + photoCounter + '. ' + img.caption);
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8);
+          doc.setTextColor(...MUTED);
+          doc.text(capLine, ML + 12, y);
+          y += 5;
+        }
+        if (img.afterText) {
+          const atLines = wrap(img.afterText, CW - 14, 9);
+          checkPage(atLines.length * 5 + 3);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.setTextColor(75, 85, 99);
+          doc.text(atLines, ML + 12, y);
+          y += atLines.length * 5 + 3;
+        }
+      } catch(e) {}
+    });
+
+    y += 5;
+
+    // Linia rozdzielcza
+    if (idx < steps.length - 1) {
+      checkPage(3);
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.3);
+      doc.line(ML, y - 2, ML + CW, y - 2);
+    }
+  });
+
+  // === ZAKONCZENIE ===
+  if (ending.trim()) {
+    const eLines = wrap(ending, CW - 14, 9);
+    checkPage(eLines.length * 5 + 16);
+    doc.setFillColor(...GLIGHT);
+    doc.setDrawColor(...GREEN);
+    doc.setLineWidth(0.8);
+    doc.line(ML, y, ML, y + eLines.length * 5 + 10);
+    doc.rect(ML + 0.8, y, CW - 0.8, eLines.length * 5 + 10, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(22, 101, 52);
+    doc.text(eLines, ML + 4, y + 5);
+    y += eLines.length * 5 + 14;
   }
+
+  // === STOPKA ===
+  const np = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= np; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text('Strona ' + i + ' / ' + np, PW / 2, PH - 10, { align: 'center' });
+  }
+
+  doc.save((val('docTitle') || 'instrukcja').replace(/[^a-zA-Z0-9_\-]/g, '_') + '.pdf');
 }
 
-/* ==========================================
-EKSPORT DOCX
-========================================== */
+
 function exportDOCX() {
   const title  = val('docTitle')  || 'Instrukcja';
   const desc   = val('docDesc');
