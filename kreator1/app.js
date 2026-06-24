@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('addStep').addEventListener('click', () => addStep());
+  const btnBottom = document.getElementById('btnAddStepBottom');
+  if (btnBottom) btnBottom.addEventListener('click', () => addStep());
   document.getElementById('btnPDF').addEventListener('click', exportPDF);
   document.getElementById('btnDOCX').addEventListener('click', exportDOCX);
   document.getElementById('btnClear').addEventListener('click', clearAll);
@@ -333,6 +335,9 @@ function renderPreview() {
   }
 
   document.getElementById('previewContent').innerHTML = html;
+  // Pokaz/ukryj dolny przycisk "Dodaj krok"
+  const bottomWrapper = document.getElementById('addStepBottom');
+  if (bottomWrapper) bottomWrapper.style.display = steps.length > 0 ? 'block' : 'none';
 }
 
 /* ==========================================
