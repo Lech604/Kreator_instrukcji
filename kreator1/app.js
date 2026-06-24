@@ -340,25 +340,44 @@ EKSPORT PDF
 ========================================== */
 async function exportPDF() {
   const { jsPDF } = window.jspdf;
+
+  /* Zaladuj czcionke Roboto z polskimi znakami (Apache 2.0, bezplatna) */
+  async function loadFont() {
+    try {
+      const ttfUrl = 'https://cdn.jsdelivr.net/npm/roboto-font@0.1.0/fonts/Roboto/roboto-regular-webfont.ttf';
+      const resp = await fetch(ttfUrl);
+      if (!resp.ok) throw new Error('font fetch failed');
+      const buf = await resp.arrayBuffer();
+      return btoa(String.fromCharCode(...new Uint8Array(buf)));
+    } catch(e) { console.warn('Font load failed:', e); return null; }
+  }
+
+  const fontB64 = await loadFont();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-  const PW = 210, PH = 297, ML = 18, MR = 18, MT = 20, MB = 18;
+  if (fontB64) {
+    doc.addFileToVFS('Roboto-Regular.ttf', fontB64);
+    doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.addFileToVFS('Roboto-Bold.ttf', fontB64);
+    doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold');
+  }
+
+  const PW = 210, PH = 297, ML = 18, MR = 18, MT = 20, MB = 20;
   const CW = PW - ML - MR;
   let y = MT;
 
-  const title    = val('docTitle')  || 'Instrukcja';
-  const desc     = val('docDesc');
-  const ending   = val('docEnding');
-  const prefix   = val('photoPrefix') || 'Fot.';
-  const tplKey   = val('templateSelect') || 'default';
-  const tpl      = TEMPLATES[tplKey] || TEMPLATES.default;
+  const title  = val('docTitle')  || 'Instrukcja';
+  const desc   = val('docDesc');
+  const ending = val('docEnding');
+  const prefix = val('photoPrefix') || 'Fot.';
+  const tplKey = val('templateSelect') || 'default';
+  const tpl    = TEMPLATES[tplKey] || TEMPLATES.default;
 
-  // Kolor akcentu z hex na RGB
+  const usePL  = !!fontB64;
+  const FONT   = usePL ? 'Roboto' : 'helvetica';
+
   function hexRGB(hex) {
-    const r = parseInt(hex.slice(1,3),16);
-    const g = parseInt(hex.slice(3,5),16);
-    const b = parseInt(hex.slice(5,7),16);
-    return [r,g,b];
+    return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)];
   }
   const ACCENT = hexRGB(tpl.accent);
   const WHITE  = [255,255,255];
@@ -374,8 +393,18 @@ async function exportPDF() {
   }
 
   function safeText(str) {
-    if (!str) return '';
-    return String(str)
+    if (str === null || str === undefined) return '';
+    let s = String(str)
+      .replace(/▲/g,'^').replace(/▼/g,'v')
+      .replace(/↑/g,'^').replace(/↓/g,'v')
+      .replace(/→/g,'->').replace(/←/g,'<-')
+      .replace(/–/g,'-').replace(/—/g,'-')
+      .replace(/‘/g,"'").replace(/’/g,"'")
+      .replace(/“/g,'"').replace(/”/g,'"')
+      .replace(/[🀀-🿿]/gu,'')
+      .replace(/[☀-➿]/gu,'');
+    if (usePL) return s;
+    return s
       .replace(/Ą/g,'A').replace(/ą/g,'a')
       .replace(/Ć/g,'C').replace(/ć/g,'c')
       .replace(/Ę/g,'E').replace(/ę/g,'e')
@@ -383,47 +412,63 @@ async function exportPDF() {
       .replace(/Ń/g,'N').replace(/ń/g,'n')
       .replace(/Ó/g,'O').replace(/ó/g,'o')
       .replace(/Ś/g,'S').replace(/ś/g,'s')
-      .replace(/Ź/g,'Z').replace(/ź/g,'z')
       .replace(/Ż/g,'Z').replace(/ż/g,'z')
-      .replace(/[^ -]/g,'?');
+      .replace(/Ź/g,'Z').replace(/ź/g,'z')
+      .replace(/[^ -~ -ÿ]/g,'');
+  }
+
+  function setF(style, size) {
+    doc.setFont(FONT, style || 'normal');
+    doc.setFontSize(size || 10);
   }
 
   function wrap(text, maxW, fs) {
-    doc.setFontSize(fs);
+    setF('normal', fs);
     return doc.splitTextToSize(safeText(text), maxW);
+  }
+
+  function addCenteredImage(src, maxW, maxH) {
+    try {
+      const ip = doc.getImageProperties(src);
+      let iw = maxW, ih = iw * ip.height / ip.width;
+      if (ih > maxH) { ih = maxH; iw = ih * ip.width / ip.height; }
+      checkPage(ih + 6);
+      const x = ML + (CW - iw) / 2;
+      doc.addImage(src, ip.fileType || 'JPEG', x, y, iw, ih);
+      y += ih + 6;
+    } catch(e) {}
   }
 
   let photoCounter = 0;
 
-  // === NAGLOWEK ===
+  /* === NAGLOWEK === */
   doc.setFillColor(...ACCENT);
   doc.rect(ML, y, CW, 16, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  setF('bold', 14);
   doc.setTextColor(...WHITE);
   doc.text(safeText(title), ML + 4, y + 7);
   if (desc) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    setF('normal', 9);
     doc.text(wrap(desc, CW - 8, 9)[0], ML + 4, y + 13);
   }
   y += 20;
 
-  // === KROKI ===
+  /* === KROKI === */
   steps.forEach((step, idx) => {
     const stepTitle = safeText(step.text || '(bez tytulu)');
     const titleLines = wrap(stepTitle, CW - 16, 11);
     checkPage(titleLines.length * 6 + 10);
 
-    // Numer + tytul
+    /* Kolo z numerem */
     doc.setFillColor(...ACCENT);
-    doc.circle(ML + 4, y + 4.5, 4.5, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
+    doc.circle(ML + 4.5, y + 4.5, 4.5, 'F');
+    setF('bold', 10);
     doc.setTextColor(...WHITE);
-    doc.text(String(idx + 1), ML + 4, y + 5.5, { align: 'center' });
+    doc.text(String(idx + 1), ML + 4.5, y + 5.5, { align: 'center' });
+
+    /* Tytul kroku */
     doc.setTextColor(...DARK);
-    doc.setFontSize(11);
+    setF('bold', 11);
     doc.text(titleLines[0], ML + 12, y + 5.5);
     if (titleLines.length > 1) {
       titleLines.slice(1).forEach((line, li) => {
@@ -432,42 +477,38 @@ async function exportPDF() {
     }
     y += titleLines.length * 6 + 4;
 
-    // Dlugi opis
+    /* Dlugi opis */
     if (step.longText) {
       const ltLines = wrap(step.longText, CW - 14, 9);
       checkPage(ltLines.length * 5 + 4);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
+      setF('normal', 9);
       doc.setTextColor(75, 85, 99);
       doc.text(ltLines, ML + 12, y);
       y += ltLines.length * 5 + 4;
     }
 
-    // Zdjecia
+    /* Zdjecia – wycentrowane */
     step.images.forEach(img => {
       if (!img.src) return;
       photoCounter++;
       try {
         const ip = doc.getImageProperties(img.src);
-        const maxW = CW * (img.size / 100) - 12;
-        const imgW = Math.min(maxW, CW - 12);
-        const imgH = imgW * ip.height / ip.width;
+        const maxW = (CW - 12) * (img.size / 100);
+        const imgH = maxW * ip.height / ip.width;
         checkPage(imgH + 14);
-        doc.addImage(img.src, ip.fileType || 'JPEG', ML + 12, y, imgW, imgH);
+        const x = ML + 12 + ((CW - 12) - maxW) / 2; // centrowanie w obszarze kroku
+        doc.addImage(img.src, ip.fileType || 'JPEG', x, y, maxW, imgH);
         y += imgH + 3;
         if (img.caption) {
-          const capLine = safeText(prefix + ' ' + photoCounter + '. ' + img.caption);
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(8);
+          setF('normal', 8);
           doc.setTextColor(...MUTED);
-          doc.text(capLine, ML + 12, y);
+          doc.text(safeText(prefix + ' ' + photoCounter + '. ' + img.caption), ML + 12, y);
           y += 5;
         }
         if (img.afterText) {
           const atLines = wrap(img.afterText, CW - 14, 9);
           checkPage(atLines.length * 5 + 3);
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(9);
+          setF('normal', 9);
           doc.setTextColor(75, 85, 99);
           doc.text(atLines, ML + 12, y);
           y += atLines.length * 5 + 3;
@@ -477,42 +518,41 @@ async function exportPDF() {
 
     y += 5;
 
-    // Linia rozdzielcza
+    /* Linia miedzy krokami */
     if (idx < steps.length - 1) {
       checkPage(3);
       doc.setDrawColor(...BORDER);
-      doc.setLineWidth(0.3);
+      doc.setLineWidth(0.25);
       doc.line(ML, y - 2, ML + CW, y - 2);
     }
   });
 
-  // === ZAKONCZENIE ===
+  /* === ZAKONCZENIE === */
   if (ending.trim()) {
-    const eLines = wrap(ending, CW - 14, 9);
-    checkPage(eLines.length * 5 + 16);
+    const eLines = wrap(ending, CW - 10, 9);
+    const eH = eLines.length * 5 + 12;
+    checkPage(eH + 4);
     doc.setFillColor(...GLIGHT);
     doc.setDrawColor(...GREEN);
     doc.setLineWidth(0.8);
-    doc.line(ML, y, ML, y + eLines.length * 5 + 10);
-    doc.rect(ML + 0.8, y, CW - 0.8, eLines.length * 5 + 10, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.line(ML, y, ML, y + eH);
+    doc.rect(ML + 0.8, y, CW - 0.8, eH, 'F');
+    setF('normal', 9);
     doc.setTextColor(22, 101, 52);
     doc.text(eLines, ML + 4, y + 5);
-    y += eLines.length * 5 + 14;
+    y += eH + 6;
   }
 
-  // === STOPKA ===
+  /* === STOPKA === */
   const np = doc.internal.getNumberOfPages();
   for (let i = 1; i <= np; i++) {
     doc.setPage(i);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    setF('normal', 7.5);
     doc.setTextColor(...MUTED);
     doc.text('Strona ' + i + ' / ' + np, PW / 2, PH - 10, { align: 'center' });
   }
 
-  doc.save((val('docTitle') || 'instrukcja').replace(/[^a-zA-Z0-9_\-]/g, '_') + '.pdf');
+  doc.save((val('docTitle') || 'instrukcja').replace(/[^a-zA-Z0-9_\-]/g,'_') + '.pdf');
 }
 
 
