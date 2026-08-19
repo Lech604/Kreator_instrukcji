@@ -425,18 +425,15 @@ function buildPrintHTML(){
 
     // Prace
     +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Wykonane prace</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+escHtml(d.praceOpis).replace(/
-/g,'<br>')+'</td></tr>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+escHtml(d.praceOpis).replace(/\n/g,'<br>')+'</td></tr>'
 
     // Materiały
     +(d.materialy?'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Użyte materiały</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.materialy).replace(/
-/g,'<br>')+'</td></tr>':'')
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.materialy).replace(/\n/g,'<br>')+'</td></tr>':'')
 
     // Uwagi
     +(d.uwagi?'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Uwagi / zalecenia</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.uwagi).replace(/
-/g,'<br>')+'</td></tr>':'')
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.uwagi).replace(/\n/g,'<br>')+'</td></tr>':'')
 
     // Odbiór
     +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;font-size:10pt">Data odbioru</td>'
@@ -547,8 +544,7 @@ async function exportDOCX(){
       +'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataEnd?d.dataEnd.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
       +(d.nrZlecenia?'<w:r><w:t xml:space="preserve">   Nr zlecenia: </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.nrZlecenia)+'</w:t></w:r>':'');
 
-    var praceLines = (d.praceOpis||'').split('
-');
+    var praceLines = (d.praceOpis||'').split('\n');
     var praceVal = praceLines.map(function(l,i){ return txt(l)+(i<praceLines.length-1?'<w:r><w:br/></w:r>':''); }).join('');
 
     body += '<w:tbl>'
