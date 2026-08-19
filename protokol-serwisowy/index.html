@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kreator Protokołu Serwisowego</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --primary:#2563eb;
+  --primary-dark:#1d4ed8;
+  --danger:#dc2626;
+  --success:#16a34a;
+  --ink:#111827;
+  --ink2:#374151;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --bg:#f3f4f6;
+  --white:#ffffff;
+  --radius:10px;
+  --shadow:0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+}
+
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+
+/* TOP BAR */
+.topbar{position:sticky;top:0;z-index:100;background:#1e293b;color:#fff;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{font-size:22px;line-height:1}
+.logo-title{font-weight:700;font-size:15px;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:#94a3b8}
+.topbar-btns{display:flex;align-items:center;gap:8px}
+
+/* BUTTONS */
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn-gold{background:var(--primary);color:#fff}.btn-gold:hover{background:var(--primary-dark)}
+.btn-blue{background:var(--primary);color:#fff}.btn-blue:hover{background:var(--primary-dark)}
+.btn-outline{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}.btn-outline:hover{background:rgba(255,255,255,.2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* LAYOUT */
+.main{max-width:900px;margin:0 auto;padding:24px 16px}
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px;margin-bottom:16px}
+.card-title{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.card-title-icon{width:26px;height:26px;background:var(--primary);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;flex-shrink:0}
+
+.lbl{display:block;font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--ink2);margin-bottom:5px}
+.inp{width:100%;padding:8px 10px;border-radius:7px;border:1.5px solid var(--border);font-size:13px;font-family:inherit;color:var(--ink);outline:none;transition:border-color .15s;background:var(--white)}
+.inp:focus{border-color:var(--primary)}
+textarea.inp{resize:vertical}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* PHOTO UPLOAD */
+.photo-drop{border:2px dashed #e5e7eb;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border .2s;background:#fafafa;text-align:center;padding:16px}
+.photo-drop:hover{border-color:#2563eb;background:#eff6ff}
+.photo-ph{color:#d1d5db;font-size:13px}
+.photo-ph .ic{font-size:28px;margin-bottom:4px}
+.photos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+.photo-thumb{position:relative;border-radius:8px;overflow:hidden;background:#f3f4f6}
+.photo-thumb img{width:100%;height:100px;object-fit:cover}
+.photo-thumb-rm{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+.photo-cap{padding:4px 6px}
+.photo-cap input{width:100%;font-size:11px;border:none;background:transparent;color:#374151;outline:none}
+
+/* SIGNATURE */
+.sig-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.sig-box{border:1px solid #e5e7eb;border-radius:8px;padding:14px}
+.sig-box-title{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.sig-line{border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:11px;color:#6b7280}
+
+/* PREVIEW / PRINT */
+#preview-container{display:none}
+
+@media print{
+  body{background:#fff}
+  .topbar,.export-bar,#editor-container{display:none!important}
+  #preview-container{display:block!important}
+  @page{size:A4;margin:0mm}
+  .print-page{padding:14mm 16mm;max-width:100%;font-family:Arial,sans-serif;color:#000;font-size:11pt}
+}
+
+/* EXPORT BAR */
+.export-bar{background:#fff;border-top:1px solid #e5e7eb;padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;bottom:0;z-index:50}
+.export-info{font-size:12px;color:#6b7280}
+
+/* STATUS */
+.status-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500}
+.status-draft{background:#fef3c7;color:#92400e}
+.status-done{background:#d1fae5;color:#065f46}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🔧</div>
+    <div>
+      <div class="logo-title">Kreator Protokołu Serwisowego</div>
+      <div class="logo-sub">protokół z realizacji usługi serwisowej</div>
+    </div>
+  </div>
+  <div class="topbar-btns">
+    <span class="status-pill status-draft" id="status-pill">● Wersja robocza</span>
+    <button class="btn btn-outline btn-sm" onclick="clearForm()">🗑 Wyczyść</button>
+    <button class="btn btn-blue btn-sm" id="btn-docx" onclick="exportDOCX()">📄 Eksportuj DOCX</button>
+    <button class="btn btn-gold btn-sm" onclick="exportPDF()">🖨 Eksportuj PDF</button>
+  </div>
+</div>
+
+<div class="main" id="editor-container">
+
+  <!-- DANE ZGŁASZAJĄCEGO -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">🏢</div>
+      Dane zgłaszającego
+    </div>
+    <div class="grid2">
+      <div class="field"><label class="lbl">Nazwa firmy</label><input class="inp" id="zgl-firma" placeholder="np. Apleona FMS Sp. z o.o." oninput="autoSave()"></div>
+      <div class="field"><label class="lbl">Budynek / obiekt</label><input class="inp" id="zgl-budynek" placeholder="np. Budynek BIG" oninput="autoSave()"></div>
+    </div>
+    <div class="field"><label class="lbl">Adres</label><input class="inp" id="zgl-adres" placeholder="np. ul. Generała Bohdana Zielińskiego 3, 30-320 Kraków" oninput="autoSave()"></div>
+    <div class="grid2">
+      <div class="field"><label class="lbl">Osoba kontaktowa</label><input class="inp" id="zgl-osoba" placeholder="Imię i nazwisko" oninput="autoSave()"></div>
+      <div class="field"><label class="lbl">Telefon / e-mail</label><input class="inp" id="zgl-kontakt" placeholder="np. +48 123 456 789" oninput="autoSave()"></div>
+    </div>
+  </div>
+
+  <!-- DANE OBIEKTU -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">📍</div>
+      Dane obiektu (jeśli inne niż zgłaszający)
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer;margin-bottom:10px">
+        <input type="checkbox" id="same-address" onchange="toggleSameAddress()" style="width:16px;height:16px">
+        Taki sam jak dane zgłaszającego
+      </label>
+    </div>
+    <div id="obiekt-fields">
+      <div class="grid2">
+        <div class="field"><label class="lbl">Nazwa / opis obiektu</label><input class="inp" id="obj-nazwa" placeholder="np. Hala produkcyjna A" oninput="autoSave()"></div>
+        <div class="field"><label class="lbl">Budynek / kondygnacja</label><input class="inp" id="obj-budynek" placeholder="np. Piętro 3" oninput="autoSave()"></div>
+      </div>
+      <div class="field"><label class="lbl">Adres obiektu</label><input class="inp" id="obj-adres" placeholder="Adres obiektu" oninput="autoSave()"></div>
+    </div>
+  </div>
+
+  <!-- DATY I ZLECENIE -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">📅</div>
+      Daty i zlecenie
+    </div>
+    <div class="grid3">
+      <div class="field"><label class="lbl">Data rozpoczęcia</label><input class="inp" type="date" id="data-start" oninput="autoSave()"></div>
+      <div class="field"><label class="lbl">Data zakończenia</label><input class="inp" type="date" id="data-end" oninput="autoSave()"></div>
+      <div class="field"><label class="lbl">Nr zlecenia / zgłoszenia</label><input class="inp" id="nr-zlecenia" placeholder="np. ZL/2025/001" oninput="autoSave()"></div>
+    </div>
+  </div>
+
+  <!-- ZAKRES PRAC -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">🔩</div>
+      Wykonane prace
+    </div>
+    <div class="field">
+      <label class="lbl">Opis wykonanych prac</label>
+      <textarea class="inp" id="prace-opis" rows="6" placeholder="Szczegółowy opis wykonanych prac serwisowych..." oninput="autoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label class="lbl">Użyte materiały / części (opcjonalnie)</label>
+      <textarea class="inp" id="materialy" rows="3" placeholder="np. Zasilacz 24V 60W — 2 szt., Puszka instalacyjna — 3 szt." oninput="autoSave()"></textarea>
+    </div>
+    <div class="field">
+      <label class="lbl">Uwagi / zalecenia</label>
+      <textarea class="inp" id="uwagi" rows="3" placeholder="np. Zaleca się wymianę instalacji w sekcji B w ciągu 30 dni." oninput="autoSave()"></textarea>
+    </div>
+  </div>
+
+  <!-- ZDJĘCIA -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">📷</div>
+      Dokumentacja fotograficzna
+    </div>
+    <div class="photo-drop" onclick="document.getElementById('photo-input').click()" ondragover="event.preventDefault()" ondrop="handlePhotoDrop(event)">
+      <div class="photo-ph">
+        <div class="ic">📷</div>
+        <div>Kliknij lub przeciągnij zdjęcia</div>
+        <div style="font-size:11px;color:#e5e7eb;margin-top:3px">PNG · JPG · WEBP</div>
+      </div>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" multiple class="hidden" style="display:none" onchange="handlePhotoFiles(this.files)">
+    <div class="photos-grid" id="photos-grid"></div>
+  </div>
+
+  <!-- STATUS FAKTURY -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">🧾</div>
+      Status faktury
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+        <input type="radio" name="faktura" value="stanowi" id="fak-tak" onchange="autoSave()">
+        Protokół <strong>stanowi</strong> podstawę wystawienia faktury VAT
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer">
+        <input type="radio" name="faktura" value="nie-stanowi" id="fak-nie" onchange="autoSave()">
+        Protokół <strong>nie stanowi</strong> podstawy wystawienia faktury VAT
+      </label>
+    </div>
+  </div>
+
+  <!-- PODPISY -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">✍️</div>
+      Podpisy i odbiór
+    </div>
+    <div class="field">
+      <label class="lbl">Usługa odebrana w dniu</label>
+      <input class="inp" type="date" id="data-odbioru" style="max-width:220px" oninput="autoSave()">
+    </div>
+    <div class="sig-wrap" style="margin-top:14px">
+      <div class="sig-box">
+        <div class="sig-box-title">Osoba uprawniona do odbioru</div>
+        <input class="inp" id="sig-odbiorca" placeholder="Imię, nazwisko, pieczęć" style="margin-bottom:8px" oninput="autoSave()">
+        <div class="sig-line">Podpis osoby odbierającej</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-box-title">Wykonawca</div>
+        <input class="inp" id="sig-wykonawca" value="Prolight Solutions Sp. z o.o." style="margin-bottom:8px" oninput="autoSave()">
+        <input class="inp" id="sig-data-wyk" type="date" style="margin-bottom:8px" oninput="autoSave()">
+        <div class="sig-line">Podpis wykonawcy</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- EXPORT BAR -->
+<div class="export-bar">
+  <div class="export-info">Protokół sporządzono w dwóch jednobrzmiących egzemplarzach</div>
+</div>
+
+<!-- PRINT PREVIEW (hidden, used for print) -->
+<div id="preview-container">
+  <div class="print-page" id="print-content"></div>
+</div>
+
+<script>
+// ── AUTO SAVE (localStorage) ──────────────────────────────────────────────
+function autoSave(){
+  const data = collectData();
+  localStorage.setItem('protokol-serwisowy', JSON.stringify(data));
+  document.getElementById('status-pill').textContent = '● Zapisano automatycznie';
+  document.getElementById('status-pill').className = 'status-pill status-done';
+}
+
+function collectData(){
+  return {
+    zglFirma:    v('zgl-firma'),
+    zglBudynek:  v('zgl-budynek'),
+    zglAdres:    v('zgl-adres'),
+    zglOsoba:    v('zgl-osoba'),
+    zglKontakt:  v('zgl-kontakt'),
+    sameAddress: document.getElementById('same-address').checked,
+    objNazwa:    v('obj-nazwa'),
+    objBudynek:  v('obj-budynek'),
+    objAdres:    v('obj-adres'),
+    dataStart:   v('data-start'),
+    dataEnd:     v('data-end'),
+    nrZlecenia:  v('nr-zlecenia'),
+    praceOpis:   v('prace-opis'),
+    materialy:   v('materialy'),
+    uwagi:       v('uwagi'),
+    faktura:     document.querySelector('input[name="faktura"]:checked')?.value || '',
+    dataOdbioru: v('data-odbioru'),
+    sigOdbiorca: v('sig-odbiorca'),
+    sigWykonawca:v('sig-wykonawca'),
+    sigDataWyk:  v('sig-data-wyk'),
+  };
+}
+
+function v(id){ return document.getElementById(id)?.value || ''; }
+
+function loadSaved(){
+  const raw = localStorage.getItem('protokol-serwisowy');
+  if (!raw) return;
+  try {
+    const d = JSON.parse(raw);
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||''; };
+    set('zgl-firma', d.zglFirma); set('zgl-budynek', d.zglBudynek);
+    set('zgl-adres', d.zglAdres); set('zgl-osoba', d.zglOsoba);
+    set('zgl-kontakt', d.zglKontakt);
+    if (d.sameAddress) { document.getElementById('same-address').checked=true; toggleSameAddress(); }
+    set('obj-nazwa', d.objNazwa); set('obj-budynek', d.objBudynek); set('obj-adres', d.objAdres);
+    set('data-start', d.dataStart); set('data-end', d.dataEnd); set('nr-zlecenia', d.nrZlecenia);
+    set('prace-opis', d.praceOpis); set('materialy', d.materialy); set('uwagi', d.uwagi);
+    if (d.faktura) { const r = document.querySelector('input[name="faktura"][value="'+d.faktura+'"]'); if(r) r.checked=true; }
+    set('data-odbioru', d.dataOdbioru); set('sig-odbiorca', d.sigOdbiorca);
+    set('sig-wykonawca', d.sigWykonawca); set('sig-data-wyk', d.sigDataWyk);
+    document.getElementById('status-pill').textContent = '● Wczytano zapisany projekt';
+    document.getElementById('status-pill').className = 'status-pill status-done';
+  } catch(e){}
+}
+
+function clearForm(){
+  if (!confirm('Wyczyścić formularz? Dane zostaną usunięte.')) return;
+  localStorage.removeItem('protokol-serwisowy');
+  document.querySelectorAll('.inp').forEach(el => el.value = '');
+  document.querySelectorAll('input[type="radio"]').forEach(el => el.checked = false);
+  document.getElementById('same-address').checked = false;
+  document.getElementById('photos-grid').innerHTML = '';
+  photos = [];
+  document.getElementById('sig-wykonawca').value = 'Prolight Solutions Sp. z o.o.';
+  document.getElementById('status-pill').textContent = '● Wersja robocza';
+  document.getElementById('status-pill').className = 'status-pill status-draft';
+}
+
+// ── PHOTOS ────────────────────────────────────────────────────────────────
+var photos = []; // [{b64, caption}]
+
+function handlePhotoDrop(ev){ ev.preventDefault(); handlePhotoFiles(ev.dataTransfer.files); }
+function handlePhotoFiles(files){
+  Array.from(files).forEach(file => {
+    const r = new FileReader();
+    r.onload = function(e){
+      photos.push({b64: e.target.result, caption: ''});
+      renderPhotos();
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function renderPhotos(){
+  const grid = document.getElementById('photos-grid');
+  grid.innerHTML = '';
+  photos.forEach(function(p, i){
+    const div = document.createElement('div');
+    div.className = 'photo-thumb';
+    div.innerHTML = '<img src="'+p.b64+'">'
+      +'<button class="photo-thumb-rm" onclick="removePhoto('+i+')">×</button>'
+      +'<div class="photo-cap"><input placeholder="Podpis..." value="'+escHtml(p.caption)+'" oninput="photos['+i+'].caption=this.value"></div>';
+    grid.appendChild(div);
+  });
+}
+function removePhoto(i){ photos.splice(i,1); renderPhotos(); }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── SAME ADDRESS ──────────────────────────────────────────────────────────
+function toggleSameAddress(){
+  const checked = document.getElementById('same-address').checked;
+  document.getElementById('obiekt-fields').style.display = checked ? 'none' : 'block';
+}
+
+// ── FORMAT DATE ────────────────────────────────────────────────────────────
+function fmtDate(d){ if(!d) return '___________'; const parts=d.split('-'); return parts[2]+'.'+parts[1]+'.'+parts[0]; }
+
+// ── BUILD PRINT HTML ──────────────────────────────────────────────────────
+function buildPrintHTML(){
+  const d = collectData();
+  const sameAddr = document.getElementById('same-address').checked;
+  const faktura = d.faktura === 'stanowi'
+    ? 'stanowi podstawę wystawienia faktury VAT'
+    : d.faktura === 'nie-stanowi'
+    ? 'nie stanowi podstawy wystawienia faktury VAT'
+    : '___________________________';
+
+  const photosHTML = photos.map(function(p, i){
+    return '<div style="page-break-inside:avoid;break-inside:avoid;margin-bottom:12px">'
+      +'<img src="'+p.b64+'" style="max-width:100%;max-height:180mm;object-fit:contain;border-radius:4px;display:block">'
+      +(p.caption ? '<p style="font-size:9pt;color:#555;margin-top:4px;font-style:italic">Fot. '+(i+1)+': '+escHtml(p.caption)+'</p>' : '')
+      +'</div>';
+  }).join('');
+
+  const objSection = sameAddr
+    ? '<p style="color:#555;font-size:10pt;font-style:italic">Tożsame z danymi zgłaszającego</p>'
+    : '<p>'+escHtml(d.objNazwa)+(d.objBudynek?' / '+escHtml(d.objBudynek):'')+'</p>'
+      +'<p>'+escHtml(d.objAdres)+'</p>';
+
+  return '<div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;max-width:800px;margin:0 auto">'
+
+    // Header
+    +'<div style="background:#1a1a2e;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;margin-bottom:0">'
+    +'<div style="font-size:18pt;font-weight:700">Protokół wykonania usługi serwisowej</div>'
+    +'<div style="font-size:10pt;color:#e8b84b;margin-top:4px">Prolight Solutions Sp. z o.o.</div>'
+    +'</div>'
+
+    // Table
+    +'<table style="width:100%;border-collapse:collapse;border:1px solid #374151">'
+
+    // Dane zgłaszającego
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;width:180px;vertical-align:top;font-size:10pt">Dane zgłaszającego</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'
+    +'<strong>'+escHtml(d.zglFirma)+'</strong>'
+    +(d.zglBudynek?'<br>'+escHtml(d.zglBudynek):'')
+    +(d.zglAdres?'<br>'+escHtml(d.zglAdres):'')
+    +(d.zglOsoba?'<br>Osoba: '+escHtml(d.zglOsoba):'')
+    +(d.zglKontakt?'<br>Kontakt: '+escHtml(d.zglKontakt):'')
+    +'</td></tr>'
+
+    // Dane obiektu
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Dane obiektu</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+objSection+'</td></tr>'
+
+    // Daty
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;font-size:10pt">Daty realizacji</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db">'
+    +'Rozpoczęcie: <strong>'+fmtDate(d.dataStart)+'</strong>&nbsp;&nbsp;&nbsp;'
+    +'Zakończenie: <strong>'+fmtDate(d.dataEnd)+'</strong>'
+    +(d.nrZlecenia?'&nbsp;&nbsp;&nbsp;Nr zlecenia: <strong>'+escHtml(d.nrZlecenia)+'</strong>':'')
+    +'</td></tr>'
+
+    // Prace
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Wykonane prace</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+escHtml(d.praceOpis).replace(/
+/g,'<br>')+'</td></tr>'
+
+    // Materiały
+    +(d.materialy?'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Użyte materiały</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.materialy).replace(/
+/g,'<br>')+'</td></tr>':'')
+
+    // Uwagi
+    +(d.uwagi?'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Uwagi / zalecenia</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'+escHtml(d.uwagi).replace(/
+/g,'<br>')+'</td></tr>':'')
+
+    // Odbiór
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;font-size:10pt">Data odbioru</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db"><strong>'+fmtDate(d.dataOdbioru)+'</strong></td></tr>'
+
+    // Faktura
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;font-size:10pt">Faktura VAT</td>'
+    +'<td style="padding:8px 12px;border:1px solid #d1d5db">Niniejszy protokół <strong>'+faktura+'</strong>.</td></tr>'
+
+    +'</table>'
+
+    // Zdjęcia
+    +(photos.length?'<div style="margin-top:20px"><div style="font-weight:700;font-size:12pt;margin-bottom:10px;color:#1a1a2e;border-bottom:2px solid #1a1a2e;padding-bottom:4px">Dokumentacja fotograficzna</div>'+photosHTML+'</div>':'')
+
+    // Podpisy
+    +'<div style="margin-top:24px">'
+    +'<div style="font-weight:700;font-size:12pt;margin-bottom:14px;color:#1a1a2e;border-bottom:2px solid #1a1a2e;padding-bottom:4px">Protokół sporządzono w dwóch jednobrzmiących egzemplarzach</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
+    +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
+    +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Osoba uprawniona do odbioru</div>'
+    +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigOdbiorca)+'</div>'
+    +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis / pieczęć</div>'
+    +'</div>'
+    +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
+    +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Wykonawca</div>'
+    +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigWykonawca)+'</div>'
+    +'<div style="font-size:10pt;color:#374151;margin-bottom:4px">'+fmtDate(d.sigDataWyk)+'</div>'
+    +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis</div>'
+    +'</div>'
+    +'</div>'
+    +'</div>'
+
+    +'</div>';
+}
+
+// ── EXPORT PDF ────────────────────────────────────────────────────────────
+function exportPDF(){
+  const content = buildPrintHTML();
+  const win = window.open('','_blank','width=900,height=700');
+  if (!win){ alert('Przeglądarka zablokowała popup. Zezwól na popupy.'); return; }
+  const css = '*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}'
+    +'body{font-family:Arial,sans-serif;background:#fff;color:#000;}'
+    +'.page{max-width:800px;margin:0 auto;padding:16mm 14mm;}'
+    +'.no-print{display:block;}'
+    +'@media print{@page{size:A4;margin:0mm;}.page{padding:14mm 12mm;}.no-print{display:none!important;}}';
+  win.document.write('<!DOCTYPE html><html><head><meta charset=UTF-8><title>Protokol Serwisowy</title>'
+    +'<style>'+css+'</style></head><body>'
+    +'<div class="no-print" style="background:#1a1a2e;color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">'
+    +'<span style="font-size:13px">Protokół serwisowy — kliknij Drukuj i wybierz Zapisz jako PDF</span>'
+    +'<button onclick="window.print()" style="background:#e8b84b;color:#1a1a2e;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨 Drukuj / PDF</button>'
+    +'</div>'
+    +'<div class="page">'+content+'</div>'
+    +'</body></html>');
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 800);
+}
+
+// ── EXPORT DOCX ───────────────────────────────────────────────────────────
+async function exportDOCX(){
+  const btn = document.getElementById('btn-docx');
+  btn.disabled = true; btn.textContent = 'Generuję...';
+  try {
+    if (typeof JSZip === 'undefined') throw new Error('JSZip nie zaladowany.');
+    const d = collectData();
+    const sameAddr = document.getElementById('same-address').checked;
+    const faktura = d.faktura === 'stanowi'
+      ? 'stanowi podstawę wystawienia faktury VAT'
+      : d.faktura === 'nie-stanowi'
+      ? 'nie stanowi podstawy wystawienia faktury VAT'
+      : '';
+
+    function ex(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function row(label, value){
+      return '<w:tr>'
+        +'<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F0F2F5"/><w:tcW w:w="2500" w:type="dxa"/></w:tcPr>'
+        +'<w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>'+ex(label)+'</w:t></w:r></w:p></w:tc>'
+        +'<w:tc><w:p>'+value+'</w:p></w:tc>'
+        +'</w:tr>';
+    }
+    function txt(s, bold){ return '<w:r>'+(bold?'<w:rPr><w:b/></w:rPr>':'')+'<w:t xml:space="preserve">'+ex(s)+'</w:t></w:r>'; }
+    function para(text, bold, sz, color){
+      sz=sz||22; var b=bold?'<w:b/>':''; var c=color?('<w:color w:val="'+color+'"/>'):'';
+      return '<w:p><w:r><w:rPr>'+b+c+'<w:sz w:val="'+sz+'"/></w:rPr><w:t xml:space="preserve">'+ex(text)+'</w:t></w:r></w:p>';
+    }
+
+    var imageFiles=[], rid=20;
+    var body='';
+
+    // Title
+    body+='<w:p><w:pPr><w:spacing w:after="100"/>'
+      +'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="1A1A2E"/></w:pBdr></w:pPr>'
+      +'<w:r><w:rPr><w:b/><w:sz w:val="40"/><w:color w:val="1A1A2E"/></w:rPr>'
+      +'<w:t>Protokół wykonania usługi serwisowej</w:t></w:r></w:p>';
+    body+='<w:p><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="7C6A1E"/></w:rPr>'
+      +'<w:t>Prolight Solutions Sp. z o.o.</w:t></w:r></w:p>';
+    body+='<w:p><w:pPr><w:spacing w:after="200"/></w:pPr></w:p>';
+
+    // Table
+    var zglVal = txt(d.zglFirma,true)+'<w:r><w:br/></w:r>'+txt(d.zglBudynek)+'<w:r><w:br/></w:r>'+txt(d.zglAdres)
+      +(d.zglOsoba?'<w:r><w:br/></w:r>'+txt('Osoba: '+d.zglOsoba):'')
+      +(d.zglKontakt?'<w:r><w:br/></w:r>'+txt('Kontakt: '+d.zglKontakt):'');
+
+    var objVal = sameAddr ? txt('Tożsame z danymi zgłaszającego')
+      : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(d.objAdres);
+
+    var datesVal = txt('Rozpoczęcie: ',false)+'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataStart?d.dataStart.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
+      +'<w:r><w:t xml:space="preserve">   Zakończenie: </w:t></w:r>'
+      +'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataEnd?d.dataEnd.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
+      +(d.nrZlecenia?'<w:r><w:t xml:space="preserve">   Nr zlecenia: </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.nrZlecenia)+'</w:t></w:r>':'');
+
+    var praceLines = (d.praceOpis||'').split('
+');
+    var praceVal = praceLines.map(function(l,i){ return txt(l)+(i<praceLines.length-1?'<w:r><w:br/></w:r>':''); }).join('');
+
+    body += '<w:tbl>'
+      +'<w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'
+      +'<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
+      +'<w:left w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
+      +'<w:bottom w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
+      +'<w:right w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
+      +'<w:insideH w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'</w:tblBorders></w:tblPr>'
+      +row('Dane zgłaszającego', zglVal)
+      +row('Dane obiektu', objVal)
+      +row('Daty realizacji', datesVal)
+      +row('Wykonane prace', praceVal)
+      +(d.materialy?row('Użyte materiały', txt(d.materialy)):'')
+      +(d.uwagi?row('Uwagi / zalecenia', txt(d.uwagi)):'')
+      +row('Data odbioru', txt(d.dataOdbioru?d.dataOdbioru.split('-').reverse().join('.'):'___',true))
+      +(faktura?row('Faktura VAT', txt('Niniejszy protokół '+faktura+'.')):'')
+      +'</w:tbl>';
+
+    body += '<w:p><w:pPr><w:spacing w:before="300"/></w:pPr></w:p>';
+
+    // Photos
+    if (photos.length > 0) {
+      body += para('Dokumentacja fotograficzna', true, 28, '1A1A2E');
+      for (var pi=0; pi<photos.length; pi++) {
+        var p = photos[pi];
+        var b64 = p.b64.split(',')[1];
+        var ext = p.b64.startsWith('data:image/png') ? 'png' : 'jpeg';
+        var rId = 'rId'+rid; rid++;
+        imageFiles.push({rId:rId, ext:ext, data:b64, idx:pi+1});
+        var cx = 5486400, cy = 3657600; // default 16:9ish
+        body += '<w:p><w:r><w:drawing>'
+          +'<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
+          +'<wp:extent cx="'+cx+'" cy="'+cy+'"/>'
+          +'<wp:docPr id="'+rid+'" name="img'+(pi+1)+'"/>'
+          +'<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+          +'<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+          +'<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+          +'<pic:nvPicPr><pic:cNvPr id="'+rid+'" name="img'+(pi+1)+'"/><pic:cNvPicPr/></pic:nvPicPr>'
+          +'<pic:blipFill><a:blip r:embed="'+rId+'" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/>'
+          +'<a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+          +'<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="'+cx+'" cy="'+cy+'"/></a:xfrm>'
+          +'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+          +'</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>';
+        if (p.caption) body += para('Fot. '+(pi+1)+': '+p.caption, false, 18, '555555');
+      }
+    }
+
+    // Signatures
+    body += '<w:p><w:pPr><w:spacing w:before="300" w:after="100"/>'
+      +'<w:pBdr><w:top w:val="single" w:sz="4" w:space="1" w:color="1A1A2E"/></w:pBdr></w:pPr>'
+      +'<w:r><w:rPr><w:b/><w:sz w:val="24"/><w:color w:val="1A1A2E"/></w:rPr>'
+      +'<w:t>Protokół sporządzono w dwóch jednobrzmiących egzemplarzach</w:t></w:r></w:p>';
+
+    body += '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'
+      +'<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'<w:left w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'<w:bottom w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'<w:right w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
+      +'</w:tblBorders></w:tblPr>'
+      +'<w:tr>'
+      +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Osoba uprawniona do odbioru</w:t></w:r></w:p>'
+      +'<w:p><w:r><w:t>'+ex(d.sigOdbiorca)+'</w:t></w:r></w:p>'
+      +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis / pieczęć</w:t></w:r></w:p></w:tc>'
+      +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Wykonawca</w:t></w:r></w:p>'
+      +'<w:p><w:r><w:t>'+ex(d.sigWykonawca)+'</w:t></w:r></w:p>'
+      +'<w:p><w:r><w:t>'+ex(d.sigDataWyk?d.sigDataWyk.split('-').reverse().join('.'):'')+'</w:t></w:r></w:p>'
+      +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis</w:t></w:r></w:p></w:tc>'
+      +'</w:tr></w:tbl>';
+
+    // Build ZIP
+    var iCT = imageFiles.map(function(f){
+      return '<Override PartName="/word/media/img'+f.idx+'.'+f.ext+'" ContentType="image/'+f.ext+'"/>';
+    }).join('');
+    var iRL = imageFiles.map(function(f){
+      return '<Relationship Id="'+f.rId+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/img'+f.idx+'.'+f.ext+'"/>';
+    }).join('');
+
+    var zip = new JSZip();
+    zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+      +'<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+      +iCT+'</Types>');
+    zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+      +'</Relationships>');
+    zip.folder('word').folder('_rels').file('document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId_styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +iRL+'</Relationships>');
+    zip.folder('word').file('styles.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+      +'<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/>'
+      +'<w:rPr><w:sz w:val="22"/></w:rPr></w:style></w:styles>');
+    zip.folder('word').file('document.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      +'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+      +' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
+      +' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+      +' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+      +' xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+      +'<w:body>'+body
+      +'<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+      +'<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>'
+      +'</w:sectPr></w:body></w:document>');
+    var media = zip.folder('word').folder('media');
+    imageFiles.forEach(function(f){ media.file('img'+f.idx+'.'+f.ext, f.data, {base64:true}); });
+
+    var blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'protokol-serwisowy.docx';
+    a.click();
+
+  } catch(err){ alert('Blad DOCX: '+err.message); console.error(err); }
+  btn.disabled=false; btn.textContent='📄 Pobierz DOCX';
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  loadSaved();
+  // Set today as default for sig date
+  var today = new Date().toISOString().split('T')[0];
+  if (!document.getElementById('sig-data-wyk').value) document.getElementById('sig-data-wyk').value = today;
+  if (!document.getElementById('data-start').value) document.getElementById('data-start').value = today;
+  if (!document.getElementById('data-end').value) document.getElementById('data-end').value = today;
+});
+</script>
+</body>
+</html>
