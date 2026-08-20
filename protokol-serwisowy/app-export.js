@@ -23,7 +23,8 @@ function buildPrintHTML(){
   const objSection = sameAddr
     ? '<p style="color:#555;font-size:10pt;font-style:italic">Tożsame z danymi zgłaszającego</p>'
     : '<p>'+escHtml(d.objNazwa)+(d.objBudynek?' / '+escHtml(d.objBudynek):'')+'</p>'
-      +'<p>'+escHtml(d.objAdres)+'</p>';
+      +(d.objUlica?'<p>'+escHtml(d.objUlica)+'</p>':'')
+      +(d.objMiejscowosc?'<p>'+escHtml(d.objMiejscowosc)+'</p>':'');
 
   return '<div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;max-width:800px;margin:0 auto">'
 
@@ -41,7 +42,8 @@ function buildPrintHTML(){
     +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'
     +'<strong>'+escHtml(d.zglFirma)+'</strong>'
     +(d.zglBudynek?'<br>'+escHtml(d.zglBudynek):'')
-    +(d.zglAdres?'<br>'+escHtml(d.zglAdres):'')
+    +(d.zglUlica?'<br>'+escHtml(d.zglUlica):'')
+    +(d.zglMiejscowosc?'<br>'+escHtml(d.zglMiejscowosc):'')
     +(d.zglOsoba?'<br>Osoba: '+escHtml(d.zglOsoba):'')
     +(d.zglKontakt?'<br>Kontakt: '+escHtml(d.zglKontakt):'')
     +'</td></tr>'
@@ -363,12 +365,12 @@ async function exportDOCX(){
     body+='<w:p><w:pPr><w:spacing w:after="200"/></w:pPr></w:p>';
 
     // Table
-    var zglVal = txt(d.zglFirma,true)+'<w:r><w:br/></w:r>'+txt(d.zglBudynek)+'<w:r><w:br/></w:r>'+txt(d.zglAdres)
+    var zglVal = txt(d.zglFirma,true)+'<w:r><w:br/></w:r>'+txt(d.zglBudynek)+'<w:r><w:br/></w:r>'+txt(d.zglUlica)+'<w:r><w:br/></w:r>'+txt(d.zglMiejscowosc)
       +(d.zglOsoba?'<w:r><w:br/></w:r>'+txt('Osoba: '+d.zglOsoba):'')
       +(d.zglKontakt?'<w:r><w:br/></w:r>'+txt('Kontakt: '+d.zglKontakt):'');
 
     var objVal = sameAddr ? txt('Tożsame z danymi zgłaszającego')
-      : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(d.objAdres);
+      : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(d.objUlica)+'<w:r><w:br/></w:r>'+txt(d.objMiejscowosc);
 
     var datesVal = txt('Rozpoczęcie: ',false)+'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataStart?d.dataStart.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
       +'<w:r><w:t xml:space="preserve">   Zakończenie: </w:t></w:r>'
