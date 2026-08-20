@@ -15,13 +15,15 @@ function collectData(){
   return {
     zglFirma:    v('zgl-firma'),
     zglBudynek:  v('zgl-budynek'),
-    zglAdres:    v('zgl-adres'),
+    zglUlica:    v('zgl-ulica'),
+    zglMiejscowosc: v('zgl-miejscowosc'),
     zglOsoba:    v('zgl-osoba'),
     zglKontakt:  v('zgl-kontakt'),
     sameAddress: document.getElementById('same-address').checked,
     objNazwa:    v('obj-nazwa'),
     objBudynek:  v('obj-budynek'),
-    objAdres:    v('obj-adres'),
+    objUlica:    v('obj-ulica'),
+    objMiejscowosc: v('obj-miejscowosc'),
     dataStart:   v('data-start'),
     dataEnd:     v('data-end'),
     nrZlecenia:  v('nr-zlecenia'),
@@ -46,10 +48,18 @@ function loadSaved(){
     const d = JSON.parse(raw);
     const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val||''; };
     set('zgl-firma', d.zglFirma); set('zgl-budynek', d.zglBudynek);
-    set('zgl-adres', d.zglAdres); set('zgl-osoba', d.zglOsoba);
+    // Zgodność wstecz: starsze zapisane projekty miały pojedyncze pole
+    // "adres" zamiast osobnych "ulica" / "kod pocztowy i miejscowość" —
+    // jeśli nowych pól brak, a stare dane istnieją, wstawiamy je do pola
+    // "Ulica", żeby nic nie zniknęło (użytkownik może później rozdzielić).
+    set('zgl-ulica', d.zglUlica !== undefined ? d.zglUlica : d.zglAdres);
+    set('zgl-miejscowosc', d.zglMiejscowosc);
+    set('zgl-osoba', d.zglOsoba);
     set('zgl-kontakt', d.zglKontakt);
     if (d.sameAddress) { document.getElementById('same-address').checked=true; toggleSameAddress(); }
-    set('obj-nazwa', d.objNazwa); set('obj-budynek', d.objBudynek); set('obj-adres', d.objAdres);
+    set('obj-nazwa', d.objNazwa); set('obj-budynek', d.objBudynek);
+    set('obj-ulica', d.objUlica !== undefined ? d.objUlica : d.objAdres);
+    set('obj-miejscowosc', d.objMiejscowosc);
     set('data-start', d.dataStart); set('data-end', d.dataEnd); set('nr-zlecenia', d.nrZlecenia);
     set('prace-opis', d.praceOpis); set('materialy', d.materialy); set('uwagi', d.uwagi);
     if (d.faktura) { const r = document.querySelector('input[name="faktura"][value="'+d.faktura+'"]'); if(r) r.checked=true; }
