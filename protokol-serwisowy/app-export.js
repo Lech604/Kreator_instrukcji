@@ -87,14 +87,15 @@ function buildPrintHTML(){
     +'<div class="avoid-break" style="margin-top:24px">'
     +'<div style="font-weight:700;font-size:12pt;margin-bottom:14px;color:#1a1a2e;border-bottom:2px solid #1a1a2e;padding-bottom:4px">Protokół sporządzono w dwóch jednobrzmiących egzemplarzach</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
-    +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
+    +'<div class="avoid-break" style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
     +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Osoba uprawniona do odbioru</div>'
     +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigOdbiorca)+'</div>'
     +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis / pieczęć</div>'
     +'</div>'
-    +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
+    +'<div class="avoid-break" style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
     +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Wykonawca</div>'
     +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigWykonawca)+'</div>'
+    +(d.sigWykonawcaOsoba?'<div style="font-size:10pt;color:#374151;margin-bottom:4px">'+escHtml(d.sigWykonawcaOsoba)+'</div>':'')
     +'<div style="font-size:10pt;color:#374151;margin-bottom:4px">'+fmtDate(d.sigDataWyk)+'</div>'
     +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis</div>'
     +'</div>'
@@ -124,13 +125,18 @@ async function exportPDF(){
 
   try {
     const content = buildPrintHTML();
-    // Reguły potrzebne przy renderowaniu do canvasu — poza @media print,
-    // żeby obowiązywały także przy generowaniu PDF (nie tylko przy Ctrl+P).
+    // UWAGA: celowo NIE ustawiamy tu CSS "break-inside:avoid" /
+    // "page-break-inside:avoid" (mimo że taka była wcześniejsza wersja tego
+    // kodu). Okazało się, że html2canvas ma błąd w obsłudze tych właściwości
+    // — ich obecność na dużych elementach (np. zdjęciach) powoduje, że
+    // kolejne takie elementy są rysowane w kompletnie złej pozycji na
+    // canvasie (przesunięcie rzędu setek-tysięcy pikseli, potwierdzone
+    // eksperymentalnie). Same klasy "avoid-break"/"avoid-break-after"
+    // zostają w HTML-u — są potrzebne wyłącznie jako znaczniki dla naszej
+    // własnej, ręcznej logiki podziału na strony (patrz noBreakZones
+    // poniżej), która i tak w pełni zastępuje CSS-owe dzielenie stron.
     const helperCss = '<style>'
-      +'.avoid-break{break-inside:avoid;page-break-inside:avoid}'
-      +'.avoid-break-after{break-after:avoid;page-break-after:avoid}'
       +'table{border-collapse:collapse;width:100%}'
-      +'tr{break-inside:avoid;page-break-inside:avoid}'
       +'</style>';
     holder.innerHTML = helperCss + content;
 
@@ -154,6 +160,20 @@ async function exportPDF(){
     const rect = holder.getBoundingClientRect();
     const scale = 2;
 
+    // Zbieramy strefy elementów, których nie chcemy przecinać w poprzek
+    // granicy stron (sekcje oznaczone "avoid-break" — w tym pojedyncze
+    // pola podpisu — oraz wiersze tabeli). Pozycje liczymy względem górnej
+    // krawędzi holdera i przeliczamy na układ współrzędnych canvasu (skala).
+    // To robimy PRZED przechwyceniem canvasu, na tym samym, jeszcze
+    // niezmienionym układzie strony co przy renderowaniu.
+    const noBreakZones = Array.from(holder.querySelectorAll('.avoid-break, tr')).map(function(el){
+      const r = el.getBoundingClientRect();
+      return {
+        top: (r.top - rect.top) * scale,
+        bottom: (r.bottom - rect.top) * scale
+      };
+    }).filter(function(z){ return z.bottom > z.top; });
+
     // Przechwytujemy CAŁĄ treść jako jeden długi canvas. Wbudowany
     // mechanizm dzielenia na strony w html2pdf.js (toPdf()) potrafił błędnie
     // przeliczać skalowanie przy niestandardowych marginesach i przycinał
@@ -166,6 +186,13 @@ async function exportPDF(){
       }
     }).from(holder).toCanvas().get('canvas');
 
+    // Docinamy strefy do faktycznej wysokości canvasu (drobne różnice
+    // zaokrągleń mogłyby inaczej wywołać zbędną, prawie pustą stronę na końcu).
+    noBreakZones.forEach(function(z){
+      z.top = Math.max(0, Math.min(z.top, canvas.height));
+      z.bottom = Math.max(0, Math.min(z.bottom, canvas.height));
+    });
+
     // Marginesy strony PDF (mm) — góra/lewo/dół/prawo. Dół jest większy,
     // żeby zostawić miejsce na stopkę z numeracją stron.
     const M = { top: 16, left: 14, bottom: 20, right: 14 };
@@ -174,7 +201,48 @@ async function exportPDF(){
     const contentHmm = PAGE_H - M.top - M.bottom;
     const pxPerMm = canvas.width / contentWmm;
     const sliceHeightPx = Math.max(1, Math.floor(contentHmm * pxPerMm));
-    const totalPages = Math.max(1, Math.ceil(canvas.height / sliceHeightPx));
+
+    // html2canvas mierzy i zawija tekst nieco inaczej niż natywny silnik
+    // layoutu przeglądarki (na którym opieramy się przy getBoundingClientRect),
+    // więc granice elementów bywają przesunięte o kilka-kilkanaście pikseli.
+    // Doliczamy margines bezpieczeństwa (~1 linia tekstu), żeby nie wpaść w
+    // sytuację, w której element "prawie się mieści" wg pomiaru DOM, a w
+    // praktyce i tak zostaje przycięty przez faktyczne renderowanie canvasu.
+    const zoneSafetyPx = 24 * scale;
+
+    // Wyznaczamy granice kolejnych stron: domyślnie co "sliceHeightPx", ale
+    // jeśli taka granica wypadłaby w środku elementu z listy "nie dziel",
+    // cofamy ją do początku tego elementu — przenosi się on wtedy w całości
+    // na kolejną stronę (o ile sam nie jest wyższy niż jedna strona — wtedy
+    // i tak trzeba go przeciąć, więc granica zostaje bez zmian).
+    const pageEnds = [];
+    let cursor = 0;
+    let guardTotal = 0;
+    while (cursor < canvas.height && guardTotal < 500){
+      guardTotal++;
+      // Naturalna granica strony — bez uwzględnienia stref "nie dziel".
+      // Strefy sprawdzamy WYŁĄCZNIE względem tej stałej granicy (a nie
+      // względem już przesuniętej), żeby uniknąć efektu domina: cofnięcie
+      // granicy z powodu jednej (późniejszej) strefy nie może dodatkowo
+      // "wypychać" wcześniejszej strefy, która przy naturalnej granicy
+      // mieściła się bez problemu — inaczej strona zostaje niepotrzebnie
+      // niemal pusta.
+      const naturalEnd = Math.min(cursor + sliceHeightPx, canvas.height);
+      let pageEnd = naturalEnd;
+      for (let zi = 0; zi < noBreakZones.length; zi++){
+        const z = noBreakZones[zi];
+        // Przenosimy element w całości na kolejną stronę tylko, gdy
+        // faktycznie zmieści się on w całości na jednej stronie — w
+        // przeciwnym razie i tak trzeba go przeciąć, więc przesuwanie
+        // tylko marnowałoby miejsce na bieżącej stronie.
+        const zBottomBuffered = Math.min(z.bottom + zoneSafetyPx, canvas.height);
+        if (z.top > cursor && z.top < naturalEnd && zBottomBuffered > naturalEnd && (zBottomBuffered - z.top) <= sliceHeightPx){
+          pageEnd = Math.min(pageEnd, z.top);
+        }
+      }
+      pageEnds.push(pageEnd);
+      cursor = pageEnd;
+    }
 
     // html2pdf.js (a więc i jsPDF) nie eksponuje swojego konstruktora jako
     // globalnej zmiennej — pobieramy gotową, poprawnie skonfigurowaną
@@ -192,9 +260,10 @@ async function exportPDF(){
     sliceCanvas.width = canvas.width;
     const sctx = sliceCanvas.getContext('2d');
 
-    for (let i = 0; i < totalPages; i++){
-      const startPx = i * sliceHeightPx;
-      const thisSliceHeightPx = Math.min(sliceHeightPx, canvas.height - startPx);
+    let prevEnd = 0;
+    for (let i = 0; i < pageEnds.length; i++){
+      const startPx = Math.round(prevEnd);
+      const thisSliceHeightPx = Math.max(1, Math.round(pageEnds[i]) - startPx);
       sliceCanvas.height = thisSliceHeightPx;
       sctx.clearRect(0, 0, sliceCanvas.width, sliceCanvas.height);
       sctx.drawImage(canvas, 0, startPx, canvas.width, thisSliceHeightPx, 0, 0, canvas.width, thisSliceHeightPx);
@@ -202,6 +271,7 @@ async function exportPDF(){
       const thisSliceHmm = thisSliceHeightPx / pxPerMm;
       pdf.addPage();
       pdf.addImage(imgData, 'JPEG', M.left, M.top, contentWmm, thisSliceHmm);
+      prevEnd = pageEnds[i];
     }
     pdf.deletePage(1); // usuwamy pustą stronę startową (z elementu-atrapy)
 
@@ -365,6 +435,7 @@ async function exportDOCX(){
       +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis / pieczęć</w:t></w:r></w:p></w:tc>'
       +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Wykonawca</w:t></w:r></w:p>'
       +'<w:p><w:r><w:t>'+ex(d.sigWykonawca)+'</w:t></w:r></w:p>'
+      +(d.sigWykonawcaOsoba?'<w:p><w:r><w:t>'+ex(d.sigWykonawcaOsoba)+'</w:t></w:r></w:p>':'')
       +'<w:p><w:r><w:t>'+ex(d.sigDataWyk?d.sigDataWyk.split('-').reverse().join('.'):'')+'</w:t></w:r></w:p>'
       +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis</w:t></w:r></w:p></w:tc>'
       +'</w:tr></w:tbl>';
