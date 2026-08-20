@@ -32,6 +32,7 @@ function collectData(){
     dataOdbioru: v('data-odbioru'),
     sigOdbiorca: v('sig-odbiorca'),
     sigWykonawca:v('sig-wykonawca'),
+    sigWykonawcaOsoba: v('sig-wykonawca-osoba'),
     sigDataWyk:  v('sig-data-wyk'),
   };
 }
@@ -53,7 +54,8 @@ function loadSaved(){
     set('prace-opis', d.praceOpis); set('materialy', d.materialy); set('uwagi', d.uwagi);
     if (d.faktura) { const r = document.querySelector('input[name="faktura"][value="'+d.faktura+'"]'); if(r) r.checked=true; }
     set('data-odbioru', d.dataOdbioru); set('sig-odbiorca', d.sigOdbiorca);
-    set('sig-wykonawca', d.sigWykonawca); set('sig-data-wyk', d.sigDataWyk);
+    set('sig-wykonawca', d.sigWykonawca); set('sig-wykonawca-osoba', d.sigWykonawcaOsoba);
+    set('sig-data-wyk', d.sigDataWyk);
     document.getElementById('status-pill').textContent = '● Wczytano zapisany projekt';
     document.getElementById('status-pill').className = 'status-pill status-done';
   } catch(e){}
