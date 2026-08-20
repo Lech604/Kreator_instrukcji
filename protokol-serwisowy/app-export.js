@@ -159,6 +159,17 @@ async function exportPDF(){
     // dokładny, zmierzony prostokąt elementu zamiast polegać na automatyce.
     const rect = holder.getBoundingClientRect();
     const scale = 2;
+    // Mały bufor (w pikselach CSS) doklejany do szerokości przechwytywanego
+    // obszaru. html2canvas przy elementach, których prawa krawędź (np.
+    // obramowanie ramki) pokrywa się DOKŁADNIE z prawą krawędzią
+    // przechwytywanego obszaru (zero marginesu), potrafi tę krawędź
+    // przyciąć/pominąć — potwierdzone eksperymentalnie na polu "Wykonawca"
+    // (znikało prawe obramowanie ramki, niezależnie od obecności zdjęć).
+    // Przechwytywanie odrobinę szerszego obszaru niż realna treść daje
+    // wystarczający margines, żeby taka krawędź zawsze mieściła się w
+    // całości na canvasie; dodatkowy pasek jest czystym białym tłem, więc
+    // jest niezauważalny w wyniku.
+    const captureWidthBuffer = 8;
 
     // Zbieramy strefy elementów, których nie chcemy przecinać w poprzek
     // granicy stron (sekcje oznaczone "avoid-break" — w tym pojedyncze
@@ -182,7 +193,7 @@ async function exportPDF(){
     const canvas = await html2pdf().set({
       html2canvas: {
         scale: scale, useCORS: true, backgroundColor: '#ffffff',
-        x: rect.left, y: rect.top, width: rect.width, height: rect.height
+        x: rect.left, y: rect.top, width: rect.width + captureWidthBuffer, height: rect.height
       }
     }).from(holder).toCanvas().get('canvas');
 
