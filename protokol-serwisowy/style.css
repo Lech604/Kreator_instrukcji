@@ -48,6 +48,7 @@ textarea.inp{resize:vertical}
 .field:last-child{margin-bottom:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.grid-addr{display:grid;grid-template-columns:2fr 1fr;gap:12px}
 
 /* PHOTO UPLOAD */
 .photo-drop{border:2px dashed #e5e7eb;border-radius:10px;min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border .2s;background:#fafafa;text-align:center;padding:16px}
