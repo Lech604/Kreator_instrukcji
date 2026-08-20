@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kreator Protokołu Serwisowego</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +22,7 @@
     <span class="status-pill status-draft" id="status-pill">● Wersja robocza</span>
     <button class="btn btn-outline btn-sm" onclick="clearForm()">🗑 Wyczyść</button>
     <button class="btn btn-blue btn-sm" id="btn-docx" onclick="exportDOCX()">📄 Eksportuj DOCX</button>
-    <button class="btn btn-gold btn-sm" onclick="exportPDF()">🖨 Eksportuj PDF</button>
+    <button class="btn btn-gold btn-sm" id="btn-pdf" onclick="exportPDF()">🖨 Eksportuj PDF</button>
   </div>
 </div>
 
