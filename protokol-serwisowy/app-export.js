@@ -171,7 +171,12 @@ async function exportPDF(){
     // wystarczający margines, żeby taka krawędź zawsze mieściła się w
     // całości na canvasie; dodatkowy pasek jest czystym białym tłem, więc
     // jest niezauważalny w wyniku.
-    const captureWidthBuffer = 8;
+    // UWAGA: na Safari ten sam problem okazał się dotyczyć WIĘCEJ elementów
+    // naraz (obramowania całej tabeli i obu pól podpisu, nie tylko pola
+    // "Wykonawca") — bufor 8px, wystarczający na Chrome, tam nie wystarczał.
+    // Zwiększony do 24px jako bezpieczny margines z zapasem (dodatkowe białe
+    // tło nadal jest niezauważalne w wyniku).
+    const captureWidthBuffer = 24;
 
     // Zbieramy strefy elementów, których nie chcemy przecinać w poprzek
     // granicy stron (sekcje oznaczone "avoid-break" — w tym pojedyncze
