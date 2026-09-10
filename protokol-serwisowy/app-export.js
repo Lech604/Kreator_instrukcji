@@ -46,7 +46,17 @@ function buildPrintHTML(){
     : '<p>'+escHtml(d.objNazwa)+(d.objBudynek?' / '+escHtml(d.objBudynek):'')+'</p>'
       +'<p>'+escHtml(d.objAdres)+'</p>';
 
-  return '<div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;max-width:800px;margin:0 auto">'
+  // UWAGA: "padding-right" + "box-sizing:border-box" celowo odsuwają prawe
+  // krawędzie tabel/ramek (width:100%) o 10px od faktycznej prawej granicy
+  // obszaru przechwytywanego przez html2canvas. Bez tego marginesu prawy
+  // brzeg obramowania (np. tabeli "Data odbioru" czy ramki "Wykonawca")
+  // wypadał dokładnie na granicy przechwytywanego obszaru — w niektórych
+  // przeglądarkach/ekranach (np. Retina, inny silnik renderowania niż
+  // testowy Chromium) ta cienka 1px linia bywała częściowo lub całkowicie
+  // ucinana przy zaokrąglaniu subpikselowym. Stały, kilkupikselowy zapas
+  // wewnątrz DOM-u (a nie tylko w buforze przechwytywania) gwarantuje, że
+  // taka krawędź nigdy nie znajdzie się dokładnie na granicy przechwytu.
+  return '<div style="font-family:Arial,sans-serif;font-size:11pt;color:#000;max-width:800px;margin:0 auto;padding-right:10px;box-sizing:border-box">'
 
     // Header
     +'<div class="avoid-break-after" style="background:#1a1a2e;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;margin-bottom:0">'
@@ -189,7 +199,7 @@ async function exportPDF(){
     // wystarczający margines, żeby taka krawędź zawsze mieściła się w
     // całości na canvasie; dodatkowy pasek jest czystym białym tłem, więc
     // jest niezauważalny w wyniku.
-    const captureWidthBuffer = 8;
+    const captureWidthBuffer = 20;
 
     // Zbieramy strefy elementów, których nie chcemy przecinać w poprzek
     // granicy stron: sekcje oznaczone "avoid-break" (w tym pojedyncze pola
