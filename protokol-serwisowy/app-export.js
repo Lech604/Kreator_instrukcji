@@ -11,6 +11,19 @@ function textToBlocks(s){
   }).join('');
 }
 
+// Renderuje pole opisowe (np. "Wykonane prace") jako samodzielny blok POZA tabelą —
+// nie jako wiersz <tr>. Gdy długi tekst dzielił się jako wiersz tabeli, przeglądarka
+// przy podziale strony musiała i tak narysować sąsiednią komórkę z etykietą na tej
+// samej wysokości co reszta wiersza — a skoro etykieta się nie powtarza, wychodziła
+// z tego pusta, szara "dziura" na kolejnej stronie. Poza tabelą tego problemu nie ma:
+// blok dzieli się swobodnie, linia po linii (patrz .flow-body w CSS eksportu).
+function flowSection(label, text){
+  return '<div style="margin-bottom:10px">'
+    +'<div class="avoid-break-after" style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;border-bottom:none;font-size:10pt">'+escHtml(label)+'</div>'
+    +'<div class="flow-body" style="padding:8px 12px;border:1px solid #d1d5db;border-top:none;line-height:1.6">'+textToBlocks(text)+'</div>'
+    +'</div>';
+}
+
 function buildPrintHTML(){
   const d = collectData();
   const sameAddr = document.getElementById('same-address').checked;
@@ -66,21 +79,20 @@ function buildPrintHTML(){
     +(d.nrZlecenia?'&nbsp;&nbsp;&nbsp;Nr zlecenia: <strong>'+escHtml(d.nrZlecenia)+'</strong>':'')
     +'</td></tr>'
 
-    // Prace (tr-flow: ten wiersz MOŻE się dzielić między stronami, żeby nie zostawiać
-    // pustej strony gdy opis jest długi — patrz reguła .tr-flow w CSS eksportu)
-    +'<tr class="tr-flow"><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Wykonane prace</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+textToBlocks(d.praceOpis)+'</td></tr>'
+    +'</table>'
 
-    // Materiały
-    +(d.materialy?'<tr class="tr-flow"><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Użyte materiały</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+textToBlocks(d.materialy)+'</td></tr>':'')
+    // Pola opisowe — POZA tabelą (patrz komentarz przy flowSection powyżej)
+    +'<div style="margin-top:10px">'
+    +flowSection('Wykonane prace', d.praceOpis)
+    +(d.materialy?flowSection('Użyte materiały', d.materialy):'')
+    +(d.uwagi?flowSection('Uwagi / zalecenia', d.uwagi):'')
+    +'</div>'
 
-    // Uwagi
-    +(d.uwagi?'<tr class="tr-flow"><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Uwagi / zalecenia</td>'
-    +'<td style="padding:8px 12px;border:1px solid #d1d5db;line-height:1.6;vertical-align:top">'+textToBlocks(d.uwagi)+'</td></tr>':'')
+    // Tabela: odbiór i faktura
+    +'<table style="width:100%;border-collapse:collapse;border:1px solid #374151">'
 
     // Odbiór
-    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;font-size:10pt">Data odbioru</td>'
+    +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;width:180px;font-size:10pt">Data odbioru</td>'
     +'<td style="padding:8px 12px;border:1px solid #d1d5db"><strong>'+fmtDate(d.dataOdbioru)+'</strong></td></tr>'
 
     // Faktura
@@ -124,9 +136,7 @@ function exportPDF(){
     +'.no-print{display:block;}'
     +'table{border-collapse:collapse;width:100%}'
     +'tr{break-inside:avoid;page-break-inside:avoid}'
-    +'tr.tr-flow{break-inside:auto;page-break-inside:auto}'
-    +'tr.tr-flow td{break-inside:auto;page-break-inside:auto}'
-    +'tr.tr-flow div{break-inside:avoid;page-break-inside:avoid}'
+    +'.flow-body div{break-inside:avoid;page-break-inside:avoid}'
     +'.avoid-break{break-inside:avoid;page-break-inside:avoid}'
     +'.avoid-break-after{break-after:avoid;page-break-after:avoid}'
     +'@page{size:A4;margin:16mm 14mm 20mm 14mm;'
@@ -172,10 +182,11 @@ async function exportDOCX(){
       : '';
 
     function ex(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    // allowSplit=true pomija <w:cantSplit/> — wiersz MOŻE się podzielić między stronami
-    // (używane dla długich pól tekstowych, żeby nie zostawiać pustej strony w Wordzie)
-    function row(label, value, allowSplit){
-      return '<w:tr>'+(allowSplit?'':'<w:trPr><w:cantSplit/></w:trPr>')
+    // Wiersze tabeli zawsze mają <w:cantSplit/> — są to same krótkie pola, więc zawsze
+    // mieszczą się w całości. Długie pola opisowe (prace/materiały/uwagi) NIE są już
+    // wierszami tabeli — patrz flowParas() niżej.
+    function row(label, value){
+      return '<w:tr><w:trPr><w:cantSplit/></w:trPr>'
         +'<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F0F2F5"/><w:tcW w:w="2500" w:type="dxa"/></w:tcPr>'
         +'<w:p><w:r><w:rPr><w:b/><w:sz w:val="20"/></w:rPr><w:t>'+ex(label)+'</w:t></w:r></w:p></w:tc>'
         +'<w:tc><w:p>'+value+'</w:p></w:tc>'
@@ -189,6 +200,14 @@ async function exportDOCX(){
     function linesToRuns(text){
       var lines = String(text||'').split('\n');
       return lines.map(function(l,i){ return txt(l)+(i<lines.length-1?'<w:r><w:br/></w:r>':''); }).join('');
+    }
+    // Pole opisowe jako zwykłe akapity POZA tabelą: pogrubiona etykieta (z <w:keepNext/>,
+    // żeby nie została sama na dole strony) + akapit z tekstem. Word dzieli zwykłe akapity
+    // między stronami w pełni naturalnie — bez żadnych sztuczek z cantSplit.
+    function flowParas(label, text){
+      return '<w:p><w:pPr><w:spacing w:before="200" w:after="60"/><w:keepNext/></w:pPr>'
+        +'<w:r><w:rPr><w:b/><w:sz w:val="20"/><w:color w:val="374151"/></w:rPr><w:t>'+ex(label)+'</w:t></w:r></w:p>'
+        +'<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>'+linesToRuns(text)+'</w:p>';
     }
 
     var imageFiles=[], rid=20;
@@ -216,23 +235,28 @@ async function exportDOCX(){
       +'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataEnd?d.dataEnd.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
       +(d.nrZlecenia?'<w:r><w:t xml:space="preserve">   Nr zlecenia: </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.nrZlecenia)+'</w:t></w:r>':'');
 
-    var praceVal = linesToRuns(d.praceOpis);
-
-    body += '<w:tbl>'
-      +'<w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'
-      +'<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
+    var tblBorders = '<w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
       +'<w:left w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
       +'<w:bottom w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
       +'<w:right w:val="single" w:sz="4" w:space="0" w:color="374151"/>'
       +'<w:insideH w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
       +'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
-      +'</w:tblBorders></w:tblPr>'
+      +'</w:tblBorders>';
+
+    // Tabela 1: dane podstawowe
+    body += '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'+tblBorders+'</w:tblPr>'
       +row('Dane zgłaszającego', zglVal)
       +row('Dane obiektu', objVal)
       +row('Daty realizacji', datesVal)
-      +row('Wykonane prace', praceVal, true)
-      +(d.materialy?row('Użyte materiały', linesToRuns(d.materialy), true):'')
-      +(d.uwagi?row('Uwagi / zalecenia', linesToRuns(d.uwagi), true):'')
+      +'</w:tbl>';
+
+    // Pola opisowe — jako akapity POZA tabelą (patrz flowParas powyżej)
+    body += flowParas('Wykonane prace', d.praceOpis);
+    if (d.materialy) body += flowParas('Użyte materiały', d.materialy);
+    if (d.uwagi) body += flowParas('Uwagi / zalecenia', d.uwagi);
+
+    // Tabela 2: odbiór i faktura
+    body += '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'+tblBorders+'</w:tblPr>'
       +row('Data odbioru', txt(d.dataOdbioru?d.dataOdbioru.split('-').reverse().join('.'):'___',true))
       +(faktura?row('Faktura VAT', txt('Niniejszy protokół '+faktura+'.')):'')
       +'</w:tbl>';

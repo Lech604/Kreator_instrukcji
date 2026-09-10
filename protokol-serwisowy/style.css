@@ -88,9 +88,7 @@ textarea.inp{resize:vertical}
   .avoid-break-after{break-after:avoid;page-break-after:avoid}
   table{border-collapse:collapse}
   tr{break-inside:avoid;page-break-inside:avoid}
-  tr.tr-flow{break-inside:auto;page-break-inside:auto}
-  tr.tr-flow td{break-inside:auto;page-break-inside:auto}
-  tr.tr-flow div{break-inside:avoid;page-break-inside:avoid}
+  .flow-body div{break-inside:avoid;page-break-inside:avoid}
 }
 
 /* EXPORT BAR */
