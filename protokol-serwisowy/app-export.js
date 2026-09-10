@@ -126,6 +126,7 @@ function buildPrintHTML(){
     +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
     +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Wykonawca</div>'
     +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigWykonawca)+'</div>'
+    +(d.sigWykonawcaOsoba?'<div style="font-size:10pt;color:#374151;margin-bottom:4px">'+escHtml(d.sigWykonawcaOsoba)+'</div>':'')
     +'<div style="font-size:10pt;color:#374151;margin-bottom:4px">'+fmtDate(d.sigDataWyk)+'</div>'
     +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis</div>'
     +'</div>'
@@ -501,6 +502,7 @@ async function exportDOCX(){
       +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis / pieczęć</w:t></w:r></w:p></w:tc>'
       +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Wykonawca</w:t></w:r></w:p>'
       +'<w:p><w:r><w:t>'+ex(d.sigWykonawca)+'</w:t></w:r></w:p>'
+      +(d.sigWykonawcaOsoba?'<w:p><w:r><w:t>'+ex(d.sigWykonawcaOsoba)+'</w:t></w:r></w:p>':'')
       +'<w:p><w:r><w:t>'+ex(d.sigDataWyk?d.sigDataWyk.split('-').reverse().join('.'):'')+'</w:t></w:r></w:p>'
       +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis</w:t></w:r></w:p></w:tc>'
       +'</w:tr></w:tbl>';
