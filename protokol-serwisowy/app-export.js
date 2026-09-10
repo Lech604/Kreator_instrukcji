@@ -41,10 +41,13 @@ function buildPrintHTML(){
       +'</div>';
   }).join('');
 
+  const zglAdresStr = (d.zglUlica||d.zglMiejscowosc) ? [d.zglUlica,d.zglMiejscowosc].filter(Boolean).join(', ') : (d.zglAdres||'');
+  const objAdresStr = (d.objUlica||d.objMiejscowosc) ? [d.objUlica,d.objMiejscowosc].filter(Boolean).join(', ') : (d.objAdres||'');
+
   const objSection = sameAddr
     ? '<p style="color:#555;font-size:10pt;font-style:italic">Tożsame z danymi zgłaszającego</p>'
     : '<p>'+escHtml(d.objNazwa)+(d.objBudynek?' / '+escHtml(d.objBudynek):'')+'</p>'
-      +'<p>'+escHtml(d.objAdres)+'</p>';
+      +'<p>'+escHtml(objAdresStr)+'</p>';
 
   // UWAGA: "padding-right" + "box-sizing:border-box" celowo odsuwają prawe
   // krawędzie tabel/ramek (width:100%) o 10px od faktycznej prawej granicy
@@ -72,7 +75,7 @@ function buildPrintHTML(){
     +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'
     +'<strong>'+escHtml(d.zglFirma)+'</strong>'
     +(d.zglBudynek?'<br>'+escHtml(d.zglBudynek):'')
-    +(d.zglAdres?'<br>'+escHtml(d.zglAdres):'')
+    +(zglAdresStr?'<br>'+escHtml(zglAdresStr):'')
     +(d.zglOsoba?'<br>Osoba: '+escHtml(d.zglOsoba):'')
     +(d.zglKontakt?'<br>Kontakt: '+escHtml(d.zglKontakt):'')
     +'</td></tr>'
@@ -415,12 +418,14 @@ async function exportDOCX(){
     body+='<w:p><w:pPr><w:spacing w:after="200"/></w:pPr></w:p>';
 
     // Table
-    var zglVal = txt(d.zglFirma,true)+'<w:r><w:br/></w:r>'+txt(d.zglBudynek)+'<w:r><w:br/></w:r>'+txt(d.zglAdres)
+    var zglAdresStr = (d.zglUlica||d.zglMiejscowosc) ? [d.zglUlica,d.zglMiejscowosc].filter(Boolean).join(', ') : (d.zglAdres||'');
+    var objAdresStr = (d.objUlica||d.objMiejscowosc) ? [d.objUlica,d.objMiejscowosc].filter(Boolean).join(', ') : (d.objAdres||'');
+    var zglVal = txt(d.zglFirma,true)+'<w:r><w:br/></w:r>'+txt(d.zglBudynek)+'<w:r><w:br/></w:r>'+txt(zglAdresStr)
       +(d.zglOsoba?'<w:r><w:br/></w:r>'+txt('Osoba: '+d.zglOsoba):'')
       +(d.zglKontakt?'<w:r><w:br/></w:r>'+txt('Kontakt: '+d.zglKontakt):'');
 
     var objVal = sameAddr ? txt('Tożsame z danymi zgłaszającego')
-      : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(d.objAdres);
+      : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(objAdresStr);
 
     var datesVal = txt('Rozpoczęcie: ',false)+'<w:r><w:rPr><w:b/></w:rPr><w:t>'+ex(d.dataStart?d.dataStart.split('-').reverse().join('.'):'___')+'</w:t></w:r>'
       +'<w:r><w:t xml:space="preserve">   Zakończenie: </w:t></w:r>'
