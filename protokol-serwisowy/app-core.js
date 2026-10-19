@@ -24,6 +24,14 @@ function collectData(){
     objBudynek:  v('obj-budynek'),
     objUlica:    v('obj-ulica'),
     objMiejscowosc: v('obj-miejscowosc'),
+    odbEnabled:  document.getElementById('odb-enabled').checked,
+    odbFirma:    v('odb-firma'),
+    odbNip:      v('odb-nip'),
+    odbUlica:    v('odb-ulica'),
+    odbMiejscowosc: v('odb-miejscowosc'),
+    odbOsoba:    v('odb-osoba'),
+    odbKontakt:  v('odb-kontakt'),
+    sigOdbiorcaManual: document.getElementById('sig-odbiorca').dataset.manual === '1',
     dataStart:   v('data-start'),
     dataEnd:     v('data-end'),
     nrZlecenia:  v('nr-zlecenia'),
@@ -52,12 +60,17 @@ function loadSaved(){
     set('zgl-kontakt', d.zglKontakt);
     if (d.sameAddress) { document.getElementById('same-address').checked=true; toggleSameAddress(); }
     set('obj-nazwa', d.objNazwa); set('obj-budynek', d.objBudynek); set('obj-ulica', d.objUlica); set('obj-miejscowosc', d.objMiejscowosc);
+    set('odb-firma', d.odbFirma); set('odb-nip', d.odbNip); set('odb-ulica', d.odbUlica);
+    set('odb-miejscowosc', d.odbMiejscowosc); set('odb-osoba', d.odbOsoba); set('odb-kontakt', d.odbKontakt);
+    document.getElementById('odb-enabled').checked = !!d.odbEnabled;
     set('data-start', d.dataStart); set('data-end', d.dataEnd); set('nr-zlecenia', d.nrZlecenia);
     set('prace-opis', d.praceOpis); set('materialy', d.materialy); set('uwagi', d.uwagi);
     if (d.faktura) { const r = document.querySelector('input[name="faktura"][value="'+d.faktura+'"]'); if(r) r.checked=true; }
     set('data-odbioru', d.dataOdbioru); set('sig-odbiorca', d.sigOdbiorca);
     set('sig-wykonawca', d.sigWykonawca); set('sig-wykonawca-osoba', d.sigWykonawcaOsoba);
     set('sig-data-wyk', d.sigDataWyk);
+    if (d.sigOdbiorcaManual) document.getElementById('sig-odbiorca').dataset.manual = '1';
+    toggleOdbiorca();
     document.getElementById('status-pill').textContent = '● Wczytano zapisany projekt';
     document.getElementById('status-pill').className = 'status-pill status-done';
   } catch(e){}
@@ -69,6 +82,10 @@ function clearForm(){
   document.querySelectorAll('.inp').forEach(el => el.value = '');
   document.querySelectorAll('input[type="radio"]').forEach(el => el.checked = false);
   document.getElementById('same-address').checked = false;
+  toggleSameAddress();
+  document.getElementById('odb-enabled').checked = false;
+  delete document.getElementById('sig-odbiorca').dataset.manual;
+  toggleOdbiorca();
   document.getElementById('photos-grid').innerHTML = '';
   photos = [];
   document.getElementById('sig-wykonawca').value = 'Prolight Solutions Sp. z o.o.';
@@ -80,6 +97,29 @@ function clearForm(){
 function toggleSameAddress(){
   const checked = document.getElementById('same-address').checked;
   document.getElementById('obiekt-fields').style.display = checked ? 'none' : 'block';
+}
+
+// ── ZAMAWIAJĄCY (PODMIOT TRZECI) ────────────────────────────────────────
+// Gdy pole jest zaznaczone, protokół podpisuje zamawiający (zamiast zgłaszającego).
+function toggleOdbiorca(){
+  const on = document.getElementById('odb-enabled').checked;
+  document.getElementById('odbiorca-fields').style.display = on ? 'block' : 'none';
+  document.getElementById('sig-odbiorca-title').textContent = on ? 'Zamawiający' : 'Osoba uprawniona do odbioru';
+  syncOdbiorcaSig();
+}
+
+// Nazwisko z pola "Osoba odbierająca" przechodzi do pola podpisu — dopóki
+// użytkownik sam nie wpisze tam czegoś innego (wtedy dataset.manual = '1').
+// Wyczyszczenie pola podpisu przywraca automatyczne uzupełnianie.
+function syncOdbiorcaSig(){
+  const on = document.getElementById('odb-enabled').checked;
+  const sig = document.getElementById('sig-odbiorca');
+  const firmaEl = document.getElementById('sig-odbiorca-firma');
+  const firma = v('odb-firma');
+  firmaEl.textContent = firma;
+  firmaEl.style.display = (on && firma) ? 'block' : 'none';
+  if (!sig.value) delete sig.dataset.manual;
+  if (on && sig.dataset.manual !== '1') sig.value = v('odb-osoba');
 }
 
 // ── FORMAT DATE ───────────────────────────────────────────────────────────────
