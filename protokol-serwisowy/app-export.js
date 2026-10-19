@@ -24,6 +24,18 @@ function flowSection(label, text){
     +'</div>';
 }
 
+// Dane zamawiającego (podmiotu trzeciego) — null, gdy moduł jest wyłączony.
+function odbiorcaInfo(d){
+  if (!d.odbEnabled) return null;
+  return {
+    firma: d.odbFirma,
+    nip: d.odbNip,
+    adres: [d.odbUlica, d.odbMiejscowosc].filter(Boolean).join(', '),
+    osoba: d.odbOsoba,
+    kontakt: d.odbKontakt
+  };
+}
+
 function buildPrintHTML(){
   const d = collectData();
   const sameAddr = document.getElementById('same-address').checked;
@@ -43,6 +55,8 @@ function buildPrintHTML(){
 
   const zglAdresStr = (d.zglUlica||d.zglMiejscowosc) ? [d.zglUlica,d.zglMiejscowosc].filter(Boolean).join(', ') : (d.zglAdres||'');
   const objAdresStr = (d.objUlica||d.objMiejscowosc) ? [d.objUlica,d.objMiejscowosc].filter(Boolean).join(', ') : (d.objAdres||'');
+
+  const odb = odbiorcaInfo(d);
 
   const objSection = sameAddr
     ? '<p style="color:#555;font-size:10pt;font-style:italic">Tożsame z danymi zgłaszającego</p>'
@@ -79,6 +93,16 @@ function buildPrintHTML(){
     +(d.zglOsoba?'<br>Osoba: '+escHtml(d.zglOsoba):'')
     +(d.zglKontakt?'<br>Kontakt: '+escHtml(d.zglKontakt):'')
     +'</td></tr>'
+
+    // Zamawiający (odbiera prace) — tylko gdy moduł włączony
+    +(odb?'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Zamawiający</td>'
+      +'<td style="padding:8px 12px;border:1px solid #d1d5db;vertical-align:top">'
+      +'<strong>'+escHtml(odb.firma)+'</strong>'
+      +(odb.nip?'<br>NIP: '+escHtml(odb.nip):'')
+      +(odb.adres?'<br>'+escHtml(odb.adres):'')
+      +(odb.osoba?'<br>Osoba odbierająca: '+escHtml(odb.osoba):'')
+      +(odb.kontakt?'<br>Kontakt: '+escHtml(odb.kontakt):'')
+      +'</td></tr>':'')
 
     // Dane obiektu
     +'<tr><td style="background:#f0f2f5;font-weight:700;padding:8px 12px;border:1px solid #d1d5db;vertical-align:top;font-size:10pt">Dane obiektu</td>'
@@ -122,7 +146,8 @@ function buildPrintHTML(){
     +'<div style="font-weight:700;font-size:12pt;margin-bottom:14px;color:#1a1a2e;border-bottom:2px solid #1a1a2e;padding-bottom:4px">Protokół sporządzono w dwóch jednobrzmiących egzemplarzach</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
     +'<div style="border:1px solid #d1d5db;border-radius:6px;padding:14px">'
-    +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Osoba uprawniona do odbioru</div>'
+    +'<div style="font-size:9pt;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">'+(odb?'Zamawiający':'Osoba uprawniona do odbioru')+'</div>'
+    +(odb&&odb.firma?'<div style="font-size:11pt;font-weight:700;margin-bottom:4px">'+escHtml(odb.firma)+'</div>':'')
     +'<div style="font-size:11pt;margin-bottom:4px">'+escHtml(d.sigOdbiorca)+'</div>'
     +'<div style="border-top:1px solid #374151;margin-top:40px;padding-top:6px;font-size:9pt;color:#6b7280">Podpis / pieczęć</div>'
     +'</div>'
@@ -424,6 +449,16 @@ async function exportDOCX(){
       +(d.zglOsoba?'<w:r><w:br/></w:r>'+txt('Osoba: '+d.zglOsoba):'')
       +(d.zglKontakt?'<w:r><w:br/></w:r>'+txt('Kontakt: '+d.zglKontakt):'');
 
+    var odb = odbiorcaInfo(d);
+    var odbVal = '';
+    if (odb) {
+      odbVal = txt(odb.firma,true)
+        +(odb.nip?'<w:r><w:br/></w:r>'+txt('NIP: '+odb.nip):'')
+        +(odb.adres?'<w:r><w:br/></w:r>'+txt(odb.adres):'')
+        +(odb.osoba?'<w:r><w:br/></w:r>'+txt('Osoba odbierająca: '+odb.osoba):'')
+        +(odb.kontakt?'<w:r><w:br/></w:r>'+txt('Kontakt: '+odb.kontakt):'');
+    }
+
     var objVal = sameAddr ? txt('Tożsame z danymi zgłaszającego')
       : txt(d.objNazwa+(d.objBudynek?' / '+d.objBudynek:''),true)+'<w:r><w:br/></w:r>'+txt(objAdresStr);
 
@@ -443,6 +478,7 @@ async function exportDOCX(){
     // Tabela 1: dane podstawowe
     body += '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'+tblBorders+'</w:tblPr>'
       +row('Dane zgłaszającego', zglVal)
+      +(odb?row('Zamawiający', odbVal):'')
       +row('Dane obiektu', objVal)
       +row('Daty realizacji', datesVal)
       +'</w:tbl>';
@@ -502,7 +538,8 @@ async function exportDOCX(){
       +'<w:insideV w:val="single" w:sz="4" w:space="0" w:color="D1D5DB"/>'
       +'</w:tblBorders></w:tblPr>'
       +'<w:tr><w:trPr><w:cantSplit/></w:trPr>'
-      +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Osoba uprawniona do odbioru</w:t></w:r></w:p>'
+      +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>'+(odb?'Zamawiający':'Osoba uprawniona do odbioru')+'</w:t></w:r></w:p>'
+      +(odb&&odb.firma?'<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">'+ex(odb.firma)+'</w:t></w:r></w:p>':'')
       +'<w:p><w:r><w:t>'+ex(d.sigOdbiorca)+'</w:t></w:r></w:p>'
       +'<w:p><w:pPr><w:spacing w:before="800"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Podpis / pieczęć</w:t></w:r></w:p></w:tc>'
       +'<w:tc><w:p><w:r><w:rPr><w:b/><w:sz w:val="18"/><w:color w:val="6B7280"/></w:rPr><w:t>Wykonawca</w:t></w:r></w:p>'
