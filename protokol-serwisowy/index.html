@@ -72,6 +72,34 @@
     </div>
   </div>
 
+  <!-- ZAMAWIAJĄCY (PODMIOT TRZECI) -->
+  <div class="card">
+    <div class="card-title">
+      <div class="card-title-icon">🤝</div>
+      Zamawiający (odbiera prace)
+    </div>
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#374151;cursor:pointer;margin-bottom:10px">
+        <input type="checkbox" id="odb-enabled" onchange="toggleOdbiorca(); autoSave()" style="width:16px;height:16px">
+        Prace odbiera zamawiający (inny podmiot niż zgłaszający)
+      </label>
+    </div>
+    <div id="odbiorca-fields" style="display:none">
+      <div class="grid2">
+        <div class="field"><label class="lbl">Nazwa firmy</label><input class="inp" id="odb-firma" placeholder="np. Inwestor Sp. z o.o." oninput="syncOdbiorcaSig(); autoSave()"></div>
+        <div class="field"><label class="lbl">NIP (opcjonalnie)</label><input class="inp" id="odb-nip" placeholder="np. 123-456-78-90" oninput="autoSave()"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="lbl">Ulica i numer</label><input class="inp" id="odb-ulica" placeholder="np. Ul. Prosta 1" oninput="autoSave()"></div>
+        <div class="field"><label class="lbl">Kod pocztowy i miejscowość</label><input class="inp" id="odb-miejscowosc" placeholder="np. 00-001 Warszawa" oninput="autoSave()"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label class="lbl">Osoba odbierająca</label><input class="inp" id="odb-osoba" placeholder="Imię i nazwisko" oninput="syncOdbiorcaSig(); autoSave()"></div>
+        <div class="field"><label class="lbl">Telefon / e-mail</label><input class="inp" id="odb-kontakt" placeholder="np. +48 123 456 789" oninput="autoSave()"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- DATY I ZLECENIE -->
   <div class="card">
     <div class="card-title">
@@ -152,8 +180,9 @@
     </div>
     <div class="sig-wrap" style="margin-top:14px">
       <div class="sig-box">
-        <div class="sig-box-title">Osoba uprawniona do odbioru</div>
-        <input class="inp" id="sig-odbiorca" placeholder="Imię, nazwisko, pieczęć" style="margin-bottom:8px" oninput="autoSave()">
+        <div class="sig-box-title" id="sig-odbiorca-title">Osoba uprawniona do odbioru</div>
+        <div id="sig-odbiorca-firma" style="display:none;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px"></div>
+        <input class="inp" id="sig-odbiorca" placeholder="Imię, nazwisko, pieczęć" style="margin-bottom:8px" oninput="this.dataset.manual='1'; autoSave()">
         <div class="sig-line">Podpis osoby odbierającej</div>
       </div>
       <div class="sig-box">
