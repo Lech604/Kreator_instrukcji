@@ -77,7 +77,7 @@ function buildPrintHTML(){
 
     // Header
     +'<div class="avoid-break-after" style="background:#1a1a2e;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;margin-bottom:0">'
-    +'<div style="font-size:18pt;font-weight:700">Protokół wykonania usługi serwisowej</div>'
+    +'<div style="font-size:18pt;font-weight:700">Protokół wykonania usługi</div>'
     +'<div style="font-size:10pt;color:#e8b84b;margin-top:4px">Prolight Solutions Sp. z o.o.</div>'
     +'</div>'
 
@@ -437,7 +437,7 @@ async function exportDOCX(){
     body+='<w:p><w:pPr><w:spacing w:after="100"/>'
       +'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="1A1A2E"/></w:pBdr></w:pPr>'
       +'<w:r><w:rPr><w:b/><w:sz w:val="40"/><w:color w:val="1A1A2E"/></w:rPr>'
-      +'<w:t>Protokół wykonania usługi serwisowej</w:t></w:r></w:p>';
+      +'<w:t>Protokół wykonania usługi</w:t></w:r></w:p>';
     body+='<w:p><w:r><w:rPr><w:sz w:val="20"/><w:color w:val="7C6A1E"/></w:rPr>'
       +'<w:t>Prolight Solutions Sp. z o.o.</w:t></w:r></w:p>';
     body+='<w:p><w:pPr><w:spacing w:after="200"/></w:pPr></w:p>';
